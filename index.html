@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lógica do Preço</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --bg2: #0f1522;
+    --bg3: #141b2d;
+    --border: #1e2d4a;
+    --green: #00e676;
+    --red: #ff1744;
+    --yellow: #ffd600;
+    --blue: #00b0ff;
+    --text: #c8d8f0;
+    --dim: #4a6080;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 16px;
+    letter-spacing: 3px;
+    color: var(--green);
+    text-shadow: 0 0 20px rgba(0,230,118,0.4);
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,230,118,0.1);
+    border: 1px solid var(--green);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 1px;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 1.2s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:0.4; transform:scale(0.7); }
+  }
+
+  .asset-bar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .asset-bar::-webkit-scrollbar { display: none; }
+
+  .asset-btn {
+    flex-shrink: 0;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .asset-btn.active {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(0,230,118,0.08);
+    box-shadow: 0 0 12px rgba(0,230,118,0.15);
+  }
+
+  .chart-container {
+    width: 100%;
+    height: 380px;
+    background: #000;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chart-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+
+  .signal-box {
+    margin: 14px 16px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .signal-box.buy  { border-color: var(--green); box-shadow: 0 0 20px rgba(0,230,118,0.1); }
+  .signal-box.sell { border-color: var(--red);   box-shadow: 0 0 20px rgba(255,23,68,0.1); }
+
+  .signal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .signal-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--dim);
+  }
+
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); }
+  .status-dot.active { background: var(--green); animation: pulse 1s infinite; }
+
+  .countdown {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--yellow);
+  }
+
+  .signal-main { padding: 14px 16px 10px; text-align: center; }
+
+  .signal-direction {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 34px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .signal-direction.buy     { color: var(--green); text-shadow: 0 0 30px rgba(0,230,118,0.5); }
+  .signal-direction.sell    { color: var(--red);   text-shadow: 0 0 30px rgba(255,23,68,0.5); }
+  .signal-direction.waiting { color: var(--dim); font-size: 16px; }
+
+  .signal-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .meta-item { text-align: center; }
+  .meta-label { font-size: 9px; color: var(--dim); letter-spacing: 2px; margin-bottom: 4px; }
+
+  .meta-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .meta-value.buy  { color: var(--green); }
+  .meta-value.sell { color: var(--red); }
+
+  .signal-pattern {
+    padding: 8px 16px 12px;
+    font-size: 11px;
+    color: var(--blue);
+    letter-spacing: 1px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .pattern-tag {
+    background: rgba(0,176,255,0.1);
+    border: 1px solid rgba(0,176,255,0.3);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+  }
+
+  .chance-box {
+    margin: 0 16px 14px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+
+  .chance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .chance-label { font-size: 9px; letter-spacing: 3px; color: var(--dim); }
+
+  .chance-pct {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 24px;
+    font-weight: 900;
+    transition: color 0.4s;
+  }
+
+  .chance-pct.high   { color: var(--green); text-shadow: 0 0 16px rgba(0,230,118,0.5); }
+  .chance-pct.medium { color: var(--yellow); }
+  .chance-pct.low    { color: var(--red); }
+  .chance-pct.none   { color: var(--dim); }
+
+  .chance-track {
+    width: 100%;
+    height: 12px;
+    background: var(--bg3);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+
+  .chance-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.9s cubic-bezier(.4,0,.2,1);
+    width: 0%;
+  }
+
+  .chance-fill.high   { background: linear-gradient(90deg,#00c853,#00e676); box-shadow: 0 0 10px rgba(0,230,118,0.5); }
+  .chance-fill.medium { background: linear-gradient(90deg,#f57f17,#ffd600); }
+  .chance-fill.low    { background: linear-gradient(90deg,#b71c1c,#ff1744); }
+  .chance-fill.none   { background: var(--dim); }
+
+  .chance-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: var(--dim);
+    margin-bottom: 8px;
+  }
+
+  .chance-rating {
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 0 16px 14px;
+  }
+
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-label { font-size: 9px; color: var(--dim); letter-spacing: 2px; margin-bottom: 6px; }
+  .stat-value { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 700; }
+  .stat-value.green  { color: var(--green); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.blue   { color: var(--blue); }
+
+  .history-section { padding: 0 16px 90px; }
+  .section-title { font-size: 10px; letter-spacing: 3px; color: var(--dim); margin-bottom: 10px; }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+
+  .hist-dir {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 5px;
+    letter-spacing: 1px;
+  }
+
+  .hist-dir.call { background: rgba(0,230,118,0.15); color: var(--green); border: 1px solid rgba(0,230,118,0.3); }
+  .hist-dir.put  { background: rgba(255,23,68,0.15);  color: var(--red);   border: 1px solid rgba(255,23,68,0.3); }
+
+  .hist-info { flex: 1; }
+  .hist-pair   { font-size: 12px; color: var(--text); letter-spacing: 1px; }
+  .hist-detail { font-size: 10px; color: var(--dim); margin-top: 2px; }
+
+  .hist-result {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+
+  .hist-result.win  { background: rgba(0,230,118,0.1); color: var(--green); }
+  .hist-result.loss { background: rgba(255,23,68,0.1);  color: var(--red); }
+
+  nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 10px 0 14px;
+    z-index: 100;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    opacity: 0.4;
+  }
+
+  .nav-item.active { opacity: 1; color: var(--green); }
+  .nav-icon  { font-size: 20px; }
+  .nav-label { font-size: 9px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LÓGICA DO PREÇO</div>
+  <div class="live-badge"><div class="live-dot"></div>AO VIVO</div>
+</header>
+
+<div class="asset-bar">
+  <button class="asset-btn active" onclick="changeAsset('EUR/USD','FX:EURUSD',this)">EUR/USD</button>
+  <button class="asset-btn" onclick="changeAsset('GBP/USD','FX:GBPUSD',this)">GBP/USD</button>
+  <button class="asset-btn" onclick="changeAsset('USD/JPY','FX:USDJPY',this)">USD/JPY</button>
+  <button class="asset-btn" onclick="changeAsset('AUD/USD','FX:AUDUSD',this)">AUD/USD</button>
+  <button class="asset-btn" onclick="changeAsset('USD/CAD','FX:USDCAD',this)">USD/CAD</button>
+</div>
+
+<!-- CHART -->
+<div class="chart-container">
+  <iframe id="tv-chart" src="" allowtransparency="true" frameborder="0" scrolling="no" allowfullscreen></iframe>
+</div>
+
+<!-- SIGNAL BOX -->
+<div class="signal-box" id="signal-box">
+  <div class="signal-header">
+    <div class="signal-status">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">ANALISANDO</span>
+    </div>
+    <div class="countdown" id="countdown"></div>
+  </div>
+  <div class="signal-main">
+    <div class="signal-direction waiting" id="signal-direction">AGUARDANDO SINAL</div>
+  </div>
+  <div class="signal-meta">
+    <div class="meta-item">
+      <div class="meta-label">DIREÇÃO</div>
+      <div class="meta-value" id="meta-dir">—</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">EXPIRAÇÃO</div>
+      <div class="meta-value">1 MIN</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">ENTRADA</div>
+      <div class="meta-value" id="meta-entry">—</div>
+    </div>
+  </div>
+  <div class="signal-pattern">
+    <span class="pattern-tag" id="pattern-tag">Buscando padrão...</span>
+    <span id="pattern-desc"></span>
+  </div>
+</div>
+
+<!-- WIN CHANCE METER -->
+<div class="chance-box">
+  <div class="chance-header">
+    <div class="chance-label">CHANCE DE VITÓRIA</div>
+    <div class="chance-pct none" id="chance-pct">—</div>
+  </div>
+  <div class="chance-track">
+    <div class="chance-fill none" id="chance-fill"></div>
+  </div>
+  <div class="chance-ticks">
+    <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+  </div>
+  <div class="chance-rating" id="chance-rating" style="color:var(--dim)">Aguardando análise...</div>
+</div>
+
+<!-- STATS -->
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-label">SINAIS</div>
+    <div class="stat-value blue" id="stat-signals">0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">ACERTOS</div>
+    <div class="stat-value green" id="stat-hits">0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">TAXA</div>
+    <div class="stat-value yellow" id="stat-rate">0%</div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="history-section">
+  <div class="section-title">HISTÓRICO</div>
+  <div id="history-list"></div>
+</div>
+
+<nav>
+  <div class="nav-item active">
+    <div class="nav-icon">⌂</div>
+    <div class="nav-label">INÍCIO</div>
+  </div>
+  <div class="nav-item">
+    <div class="nav-icon">◈</div>
+    <div class="nav-label">SINAIS</div>
+  </div>
+  <div class="nav-item">
+    <div class="nav-icon">◎</div>
+    <div class="nav-label">ACADEMIA</div>
+  </div>
+  <div class="nav-item">
+    <div class="nav-icon">⚙</div>
+    <div class="nav-label">CONFIG</div>
+  </div>
+</nav>
+
+<script>
+  // ── CHART ─────────────────────────────────────────
+  function loadChart(symbol) {
+    const url = `https://s.tradingview.com/widgetembed/?frameElementId=tv-chart&symbol=${symbol}&interval=1&hidesidetoolbar=0&symboledit=0&saveimage=0&toolbarbg=0f1522&theme=dark&style=1&timezone=America%2FSao_Paulo&locale=br`;
+    document.getElementById('tv-chart').src = url;
+  }
+
+  // ── STATE ─────────────────────────────────────────
+  const API_KEY = '0c36cfcd57ab469aa60d338370cd354f';
+  let currentPair = 'EUR/USD';
+  let currentSymbol = 'EUR/USD';
+  let signals = 0, hits = 0;
+  let historyData = [];
+  let countdownTimer = null;
+  let fetchTimer = null;
+  let lastSignalTime = 0;
+  let waitingResult = false;
+  let lastSignalDir = null;
+  let lastEntry = null;
+  let lastPattern = null;
+
+  // Mapa de par -> símbolo Twelve Data
+  const symbolMap = {
+    'EUR/USD': 'EUR/USD',
+    'GBP/USD': 'GBP/USD',
+    'USD/JPY': 'USD/JPY',
+    'AUD/USD': 'AUD/USD',
+    'USD/CAD': 'USD/CAD',
+  };
+
+  function changeAsset(pair, tvSymbol, btn) {
+    currentPair = pair;
+    currentSymbol = symbolMap[pair];
+    document.querySelectorAll('.asset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadChart(tvSymbol);
+    resetDisplay();
+  }
+
+  function resetDisplay() {
+    clearInterval(countdownTimer);
+    clearInterval(fetchTimer);
+    waitingResult = false;
+    lastSignalDir = null;
+
+    document.getElementById('signal-box').className = 'signal-box';
+    document.getElementById('signal-direction').className = 'signal-direction waiting';
+    document.getElementById('signal-direction').textContent = 'AGUARDANDO SINAL';
+    document.getElementById('status-dot').className = 'status-dot';
+    document.getElementById('status-text').textContent = 'ANALISANDO';
+    document.getElementById('countdown').textContent = '';
+    document.getElementById('meta-dir').textContent = '—';
+    document.getElementById('meta-dir').className = 'meta-value';
+    document.getElementById('meta-entry').textContent = '—';
+    document.getElementById('pattern-tag').textContent = 'Buscando padrão...';
+    document.getElementById('pattern-desc').textContent = '';
+    setChance(0, false);
+
+    // Busca velas imediatamente e depois a cada 60s
+    fetchAndAnalyze();
+    fetchTimer = setInterval(fetchAndAnalyze, 60000);
+  }
+
+  // ── BUSCA VELAS REAIS ─────────────────────────────
+  async function fetchAndAnalyze() {
+    try {
+      const url = `https://api.twelvedata.com/time_series?symbol=${currentSymbol}&interval=1min&outputsize=10&apikey=${API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!data.values || data.values.length < 3) return;
+
+      // Velas: [0] = mais recente (ainda aberta), [1] = última fechada, [2] = anterior
+      const candles = data.values.map(v => ({
+        open:  parseFloat(v.open),
+        high:  parseFloat(v.high),
+        low:   parseFloat(v.low),
+        close: parseFloat(v.close),
+        datetime: v.datetime
+      }));
+
+      // Se estamos aguardando resultado de um sinal anterior
+      if (waitingResult && lastSignalDir !== null) {
+        checkResult(candles[0]);
+        return;
+      }
+
+      analyzeCandles(candles);
+
+    } catch(e) {
+      console.error('Erro API:', e);
+    }
+  }
+
+  // ── ANALISA VELAS COM LÓGICA DO PREÇO ────────────
+  function analyzeCandles(candles) {
+    const c1 = candles[1]; // última vela fechada
+    const c2 = candles[2]; // vela anterior
+    const c3 = candles[3]; // 2 velas atrás
+
+    const totalSize1 = c1.high - c1.low;
+    const bodySize1  = Math.abs(c1.close - c1.open);
+    const bodyRatio1 = totalSize1 > 0 ? bodySize1 / totalSize1 : 0;
+
+    // ── REGRA 1: Corpo mínimo 30% (rompimento válido) ──
+    if (bodyRatio1 < 0.30) return; // vela fraca, ignora
+
+    const isBullish1 = c1.close > c1.open;
+    const isBearish1 = c1.close < c1.open;
+
+    let pattern = null;
+    let isBuy = null;
+    let confluences = 0;
+    let chance = 0;
+
+    // ── VELA DE COMANDO ───────────────────────────
+    // Vela com corpo >= 50% do total, fechando na direção
+    if (bodyRatio1 >= 0.50) {
+      confluences++;
+      pattern = { name: 'Vela de Comando', desc: 'Corpo forte na direção' };
+      isBuy = isBullish1;
+    }
+
+    // ── ENGOLFO ───────────────────────────────────
+    // C1 engole o corpo de C2
+    if (isBullish1 && c1.close > c2.high && c1.open < c2.low) {
+      confluences++;
+      pattern = { name: 'Engolfo de Alta', desc: 'Engolfo completo' };
+      isBuy = true;
+    }
+    if (isBearish1 && c1.close < c2.low && c1.open > c2.high) {
+      confluences++;
+      pattern = { name: 'Engolfo de Baixa', desc: 'Engolfo completo' };
+      isBuy = false;
+    }
+
+    // ── PIN BAR ───────────────────────────────────
+    // Pavio longo (> 60% do total) e corpo pequeno (< 30%)
+    const upperWick1 = c1.high - Math.max(c1.open, c1.close);
+    const lowerWick1 = Math.min(c1.open, c1.close) - c1.low;
+    if (lowerWick1 > totalSize1 * 0.60 && bodyRatio1 < 0.30) {
+      confluences++;
+      pattern = { name: 'Pin Bar', desc: 'Rejeição de nível' };
+      isBuy = true;
+    }
+    if (upperWick1 > totalSize1 * 0.60 && bodyRatio1 < 0.30) {
+      confluences++;
+      pattern = { name: 'Pin Bar', desc: 'Rejeição de topo' };
+      isBuy = false;
+    }
+
+    // ── TENDÊNCIA (confluência extra) ─────────────
+    // 3 velas na mesma direção = tendência definida
+    const trend = getTrend(candles);
+    if (trend === 'up' && isBuy === true)   confluences++;
+    if (trend === 'down' && isBuy === false) confluences++;
+
+    // ── RETRAÇÃO NA REGIÃO ────────────────────────
+    // C1 retrai para região de C2/C3 após movimento
+    const retracao = checkRetracao(candles);
+    if (retracao && retracao === (isBuy ? 'buy' : 'sell')) confluences++;
+
+    // Só dispara sinal se tiver pelo menos 2 confluências
+    if (confluences < 2 || pattern === null || isBuy === null) return;
+
+    // Calcula chance baseada nas confluências
+    chance = Math.min(50 + confluences * 10 + Math.floor(bodyRatio1 * 20), 92);
+
+    fireSignal(isBuy, pattern, chance, c1.close.toFixed(5));
+  }
+
+  function getTrend(candles) {
+    const closes = candles.slice(1, 6).map(c => c.close);
+    let up = 0, down = 0;
+    for (let i = 0; i < closes.length - 1; i++) {
+      if (closes[i] > closes[i+1]) up++;
+      else down++;
+    }
+    if (up >= 3) return 'up';
+    if (down >= 3) return 'down';
+    return 'lateral';
+  }
+
+  function checkRetracao(candles) {
+    const c0 = candles[0]; // vela atual
+    const c1 = candles[1]; // última fechada
+    const c2 = candles[2];
+    // Preço atual retornou à região da vela anterior
+    if (c0.low <= c1.high && c0.close > c1.open) return 'buy';
+    if (c0.high >= c1.low && c0.close < c1.open) return 'sell';
+    return null;
+  }
+
+  // ── DISPARA SINAL ─────────────────────────────────
+  function fireSignal(isBuy, pat, chance, entry) {
+    // Evita sinais duplicados em menos de 60s
+    const now = Date.now();
+    if (now - lastSignalTime < 60000) return;
+    lastSignalTime = now;
+
+    lastSignalDir = isBuy;
+    lastEntry = entry;
+    lastPattern = pat.name;
+    waitingResult = false;
+
+    document.getElementById('signal-box').className = 'signal-box ' + (isBuy ? 'buy' : 'sell');
+
+    const dir = document.getElementById('signal-direction');
+    dir.className = 'signal-direction ' + (isBuy ? 'buy' : 'sell');
+    dir.textContent = isBuy ? '▲ COMPRA' : '▼ VENDA';
+
+    document.getElementById('status-dot').className = 'status-dot active';
+    document.getElementById('status-text').textContent = 'SINAL DETECTADO';
+
+    const metaDir = document.getElementById('meta-dir');
+    metaDir.textContent = isBuy ? 'CALL' : 'PUT';
+    metaDir.className = 'meta-value ' + (isBuy ? 'buy' : 'sell');
+
+    document.getElementById('meta-entry').textContent = entry;
+    document.getElementById('pattern-tag').textContent = pat.name;
+    document.getElementById('pattern-desc').textContent = pat.desc;
+
+    setChance(chance, true);
+
+    // Countdown 60s
+    let secs = 60;
+    document.getElementById('countdown').textContent = secs + 's';
+    clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      secs--;
+      document.getElementById('countdown').textContent = secs + 's';
+      if (secs <= 0) {
+        clearInterval(countdownTimer);
+        waitingResult = true;
+        document.getElementById('status-text').textContent = 'VERIFICANDO...';
+      }
+    }, 1000);
+  }
+
+  // ── VERIFICA RESULTADO ────────────────────────────
+  function checkResult(currentCandle) {
+    if (!waitingResult || lastSignalDir === null) return;
+    waitingResult = false;
+
+    const entryPrice = parseFloat(lastEntry);
+    const closePrice = currentCandle.close;
+    const won = lastSignalDir ? (closePrice > entryPrice) : (closePrice < entryPrice);
+
+    signals++;
+    if (won) hits++;
+
+    document.getElementById('stat-signals').textContent = signals;
+    document.getElementById('stat-hits').textContent = hits;
+    document.getElementById('stat-rate').textContent = Math.round((hits / signals) * 100) + '%';
+
+    const now = new Date();
+    const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    historyData.unshift({
+      dir: lastSignalDir ? 'CALL' : 'PUT',
+      pair: currentPair,
+      time,
+      entry: lastEntry,
+      pattern: lastPattern,
+      result: won ? 'WIN' : 'LOSS'
+    });
+    if (historyData.length > 10) historyData.pop();
+    renderHistory();
+
+    // Reset visual após 3s
+    setTimeout(() => {
+      document.getElementById('signal-box').className = 'signal-box';
+      document.getElementById('signal-direction').className = 'signal-direction waiting';
+      document.getElementById('signal-direction').textContent = 'AGUARDANDO SINAL';
+      document.getElementById('status-dot').className = 'status-dot';
+      document.getElementById('status-text').textContent = 'ANALISANDO';
+      document.getElementById('countdown').textContent = '';
+      document.getElementById('meta-dir').textContent = '—';
+      document.getElementById('meta-dir').className = 'meta-value';
+      document.getElementById('meta-entry').textContent = '—';
+      document.getElementById('pattern-tag').textContent = 'Buscando padrão...';
+      document.getElementById('pattern-desc').textContent = '';
+      setChance(0, false);
+      lastSignalDir = null;
+    }, 3000);
+  }
+
+  function setChance(pct, active) {
+    const pctEl    = document.getElementById('chance-pct');
+    const fillEl   = document.getElementById('chance-fill');
+    const ratingEl = document.getElementById('chance-rating');
+
+    if (!active || pct === 0) {
+      pctEl.textContent = '—'; pctEl.className = 'chance-pct none';
+      fillEl.style.width = '0%'; fillEl.className = 'chance-fill none';
+      ratingEl.textContent = 'Aguardando análise...';
+      ratingEl.style.color = 'var(--dim)';
+      return;
+    }
+
+    pctEl.textContent = pct + '%';
+    fillEl.style.width = pct + '%';
+
+    if (pct >= 75) {
+      pctEl.className = 'chance-pct high'; fillEl.className = 'chance-fill high';
+      ratingEl.textContent = '✦ SINAL FORTE — Alta probabilidade de acerto';
+      ratingEl.style.color = 'var(--green)';
+    } else if (pct >= 60) {
+      pctEl.className = 'chance-pct medium'; fillEl.className = 'chance-fill medium';
+      ratingEl.textContent = '◆ SINAL MODERADO — Atenção ao gerenciamento de risco';
+      ratingEl.style.color = 'var(--yellow)';
+    } else {
+      pctEl.className = 'chance-pct low'; fillEl.className = 'chance-fill low';
+      ratingEl.textContent = '▼ SINAL FRACO — Considere aguardar próxima oportunidade';
+      ratingEl.style.color = 'var(--red)';
+    }
+  }
+
+  function renderHistory() {
+    document.getElementById('history-list').innerHTML = historyData.map(h => `
+      <div class="history-item">
+        <div class="hist-dir ${h.dir === 'CALL' ? 'call' : 'put'}">${h.dir}</div>
+        <div class="hist-info">
+          <div class="hist-pair">${h.pair}</div>
+          <div class="hist-detail">${h.time} · ${h.entry} · ${h.pattern}</div>
+        </div>
+        <div class="hist-result ${h.result === 'WIN' ? 'win' : 'loss'}">${h.result} ${h.result === 'WIN' ? '✓' : '✗'}</div>
+      </div>
+    `).join('');
+  }
+
+  // ── INIT ──────────────────────────────────────────
+  loadChart('FX:EURUSD');
+  resetDisplay();
+</script>
+</body>
+</html>
