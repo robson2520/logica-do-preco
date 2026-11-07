@@ -3,392 +3,299 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lógica do Preço</title>
+<title>Lógica do Preço — Sinais v4</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0a0e17;
-    --bg2: #0f1522;
-    --bg3: #141b2d;
-    --border: #1e2d4a;
-    --green: #00e676;
-    --red: #ff1744;
-    --yellow: #ffd600;
-    --blue: #00b0ff;
-    --text: #c8d8f0;
-    --dim: #4a6080;
-  }
+  :root{--bg:#0a0e17;--bg2:#0f1522;--bg3:#141b2d;--border:#1e2d4a;--green:#00e676;--red:#ff1744;--yellow:#ffd600;--blue:#00b0ff;--orange:#ff6d00;--purple:#d500f9;--text:#c8d8f0;--dim:#4a6080;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;overflow-x:hidden;}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:13px;letter-spacing:3px;color:var(--green);text-shadow:0 0 20px rgba(0,230,118,.4);}
+  .header-right{display:flex;align-items:center;gap:8px;}
+  .live-badge{display:flex;align-items:center;gap:5px;background:rgba(0,230,118,.1);border:1px solid var(--green);border-radius:20px;padding:4px 9px;font-size:9px;color:var(--green);letter-spacing:1px;}
+  .live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+  .tf-toggle{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .tf-btn{padding:4px 10px;font-family:'Share Tech Mono',monospace;font-size:10px;background:var(--bg3);color:var(--dim);border:none;cursor:pointer;letter-spacing:1px;transition:all .2s;}
+  .tf-btn.active{background:rgba(0,176,255,.15);color:var(--blue);}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Share Tech Mono', monospace;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+  .news-banner{display:none;align-items:center;gap:8px;padding:7px 14px;background:rgba(255,109,0,.1);border-bottom:2px solid var(--orange);font-size:9px;color:var(--orange);letter-spacing:1px;}
+  .news-banner.show{display:flex;}
 
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 20px;
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
+  .asset-bar{display:flex;flex-direction:column;gap:6px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--border);}
+  .asset-section-label{font-size:8px;color:var(--dim);letter-spacing:2px;}
+  .asset-section-label.night{color:var(--purple);}
+  .asset-row{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;}
+  .asset-row::-webkit-scrollbar{display:none;}
+  .asset-btn{flex-shrink:0;padding:5px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--dim);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;transition:all .2s;letter-spacing:1px;}
+  .asset-btn.active{border-color:var(--green);color:var(--green);background:rgba(0,230,118,.08);}
+  .asset-btn.noite{border-color:rgba(213,0,249,.25);color:rgba(213,0,249,.6);}
+  .asset-btn.noite.active{border-color:var(--purple);color:var(--purple);background:rgba(213,0,249,.08);}
 
-  .logo {
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 900;
-    font-size: 16px;
-    letter-spacing: 3px;
-    color: var(--green);
-    text-shadow: 0 0 20px rgba(0,230,118,0.4);
-  }
+  .chart-container{width:100%;height:300px;background:#000;border-bottom:1px solid var(--border);}
+  .chart-container iframe{width:100%;height:100%;border:none;display:block;}
 
-  .live-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(0,230,118,0.1);
-    border: 1px solid var(--green);
-    border-radius: 20px;
-    padding: 5px 12px;
-    font-size: 11px;
-    color: var(--green);
-    letter-spacing: 1px;
-  }
+  /* ── VELA COUNTDOWN BAR ── */
+  .vela-bar{background:var(--bg2);border-bottom:2px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:10px;}
+  .vela-bar-label{font-size:8px;color:var(--dim);letter-spacing:2px;white-space:nowrap;}
+  .vela-track-wrap{flex:1;position:relative;}
+  .vela-track{width:100%;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;border:1px solid var(--border);}
+  .vela-fill{height:100%;border-radius:4px;transition:width .5s linear;}
+  .vela-fill.safe  {background:linear-gradient(90deg,#00c853,#00e676);}
+  .vela-fill.warn  {background:linear-gradient(90deg,#f57f17,#ffd600);}
+  .vela-fill.danger{background:linear-gradient(90deg,#b71c1c,#ff1744);}
+  .vela-secs{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;white-space:nowrap;min-width:42px;text-align:right;}
+  .vela-secs.safe  {color:var(--green);}
+  .vela-secs.warn  {color:var(--yellow);}
+  .vela-secs.danger{color:var(--red);}
+  .vela-name{font-size:8px;letter-spacing:2px;white-space:nowrap;}
+  .vela-name.safe  {color:var(--green);}
+  .vela-name.warn  {color:var(--yellow);}
+  .vela-name.danger{color:var(--red);}
 
-  .live-dot {
-    width: 7px; height: 7px;
-    background: var(--green);
-    border-radius: 50%;
-    animation: pulse 1.2s infinite;
-  }
+  /* ── ADX PANEL ── */
+  .adx-box{margin:10px 12px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:11px 13px;}
+  .adx-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .adx-title{font-size:7px;letter-spacing:3px;color:var(--dim);}
+  .adx-val-wrap{display:flex;align-items:baseline;gap:4px;}
+  .adx-num{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;transition:color .5s;}
+  .adx-num.strong {color:var(--green);text-shadow:0 0 14px rgba(0,230,118,.5);}
+  .adx-num.forming{color:var(--yellow);}
+  .adx-num.weak   {color:var(--red);}
+  .adx-num.none   {color:var(--dim);}
+  .adx-lbl{font-size:9px;color:var(--dim);}
+  .adx-di-row{display:flex;gap:7px;margin-bottom:7px;}
+  .adx-di{flex:1;background:var(--bg3);border-radius:6px;padding:6px 8px;text-align:center;border:1px solid var(--border);}
+  .adx-di-label{font-size:7px;color:var(--dim);letter-spacing:1px;margin-bottom:3px;}
+  .adx-di-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;}
+  .adx-di-val.up  {color:var(--green);}
+  .adx-di-val.down{color:var(--red);}
+  .adx-track{width:100%;height:10px;background:var(--bg3);border-radius:5px;overflow:hidden;border:1px solid var(--border);margin-bottom:5px;position:relative;}
+  .adx-fill{height:100%;border-radius:5px;transition:width .8s cubic-bezier(.4,0,.2,1);width:0%;}
+  .adx-fill.strong {background:linear-gradient(90deg,#00c853,#00e676);box-shadow:0 0 8px rgba(0,230,118,.5);}
+  .adx-fill.forming{background:linear-gradient(90deg,#f57f17,#ffd600);}
+  .adx-fill.weak   {background:linear-gradient(90deg,#b71c1c,#ff1744);}
+  .adx-fill.none   {background:var(--dim);}
+  .adx-mark{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.2);}
+  .adx-zones{display:flex;justify-content:space-between;font-size:7px;color:var(--dim);margin-bottom:6px;}
+  .adx-status{text-align:center;font-size:9px;letter-spacing:1px;padding-top:6px;border-top:1px solid var(--border);}
 
-  @keyframes pulse {
-    0%,100% { opacity:1; transform:scale(1); }
-    50% { opacity:0.4; transform:scale(0.7); }
-  }
+  .adx-blocked{display:none;margin:0 12px 8px;background:rgba(255,23,68,.07);border:1px solid rgba(255,23,68,.3);border-radius:7px;padding:8px 12px;font-size:9px;color:var(--red);letter-spacing:1px;text-align:center;line-height:1.6;}
+  .adx-blocked.show{display:block;}
 
-  .asset-bar {
-    display: flex;
-    gap: 8px;
-    padding: 12px 16px;
-    overflow-x: auto;
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    scrollbar-width: none;
-  }
-  .asset-bar::-webkit-scrollbar { display: none; }
+  /* ── SIGNAL BOX ── */
+  .signal-box{margin:0 12px 8px;border-radius:12px;border:1px solid var(--border);background:var(--bg2);overflow:hidden;transition:border-color .3s,box-shadow .3s;}
+  .signal-box.buy {border-color:var(--green);box-shadow:0 0 24px rgba(0,230,118,.15);}
+  .signal-box.sell{border-color:var(--red);  box-shadow:0 0 24px rgba(255,23,68,.15);}
+  .signal-box.news{border-color:var(--orange);box-shadow:0 0 24px rgba(255,109,0,.12);}
+  .signal-header{display:flex;justify-content:space-between;align-items:center;padding:8px 13px;background:var(--bg3);border-bottom:1px solid var(--border);}
+  .signal-status{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:2px;color:var(--dim);}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:var(--dim);}
+  .status-dot.active {background:var(--green);animation:pulse 1s infinite;}
+  .status-dot.waiting{background:var(--yellow);animation:pulse 1s infinite;}
+  .status-dot.news   {background:var(--orange);animation:pulse 1s infinite;}
+  .countdown{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;color:var(--yellow);}
+  .signal-main{padding:10px 13px 7px;text-align:center;}
+  .signal-direction{font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;letter-spacing:4px;display:flex;align-items:center;justify-content:center;gap:10px;}
+  .signal-direction.buy    {color:var(--green);text-shadow:0 0 30px rgba(0,230,118,.5);}
+  .signal-direction.sell   {color:var(--red);  text-shadow:0 0 30px rgba(255,23,68,.5);}
+  .signal-direction.waiting{color:var(--dim);font-size:13px;}
+  .signal-direction.news   {color:var(--orange);font-size:14px;}
+  .signal-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;padding:9px 13px;border-top:1px solid var(--border);}
+  .meta-item{text-align:center;}
+  .meta-label{font-size:7px;color:var(--dim);letter-spacing:2px;margin-bottom:3px;}
+  .meta-value{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
+  .meta-value.buy {color:var(--green);}
+  .meta-value.sell{color:var(--red);}
+  .signal-patterns{padding:7px 13px 9px;display:flex;flex-wrap:wrap;gap:4px;border-top:1px solid var(--border);}
+  .pattern-tag{background:rgba(0,176,255,.1);border:1px solid rgba(0,176,255,.3);padding:2px 7px;border-radius:4px;font-size:8px;color:var(--blue);letter-spacing:1px;}
+  .pattern-tag.sell{background:rgba(255,23,68,.1);border-color:rgba(255,23,68,.3);color:var(--red);}
+  .pattern-tag.buy {background:rgba(0,230,118,.1);border-color:rgba(0,230,118,.3);color:var(--green);}
 
-  .asset-btn {
-    flex-shrink: 0;
-    padding: 7px 14px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg3);
-    color: var(--dim);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-    letter-spacing: 1px;
-  }
+  /* ── CHANCE ── */
+  .chance-box{margin:0 12px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:11px 13px;}
+  .chance-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+  .chance-label{font-size:7px;letter-spacing:3px;color:var(--dim);}
+  .chance-pct{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;transition:color .4s;}
+  .chance-pct.high  {color:var(--green);text-shadow:0 0 16px rgba(0,230,118,.5);}
+  .chance-pct.medium{color:var(--yellow);}
+  .chance-pct.low   {color:var(--red);}
+  .chance-pct.none  {color:var(--dim);}
+  .chance-track{width:100%;height:9px;background:var(--bg3);border-radius:5px;overflow:hidden;border:1px solid var(--border);margin-bottom:5px;}
+  .chance-fill{height:100%;border-radius:5px;transition:width .9s cubic-bezier(.4,0,.2,1);width:0%;}
+  .chance-fill.high  {background:linear-gradient(90deg,#00c853,#00e676);box-shadow:0 0 10px rgba(0,230,118,.5);}
+  .chance-fill.medium{background:linear-gradient(90deg,#f57f17,#ffd600);}
+  .chance-fill.low   {background:linear-gradient(90deg,#b71c1c,#ff1744);}
+  .chance-fill.none  {background:var(--dim);}
+  .chance-ticks{display:flex;justify-content:space-between;font-size:7px;color:var(--dim);margin-bottom:5px;}
+  .chance-rating{text-align:center;font-size:9px;letter-spacing:1px;padding-top:5px;border-top:1px solid var(--border);}
 
-  .asset-btn.active {
-    border-color: var(--green);
-    color: var(--green);
-    background: rgba(0,230,118,0.08);
-    box-shadow: 0 0 12px rgba(0,230,118,0.15);
-  }
+  /* ── CONFLUÊNCIAS ── */
+  .conf-box{margin:0 12px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:11px 13px;}
+  .conf-title{font-size:7px;letter-spacing:3px;color:var(--dim);margin-bottom:8px;}
+  .conf-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+  .conf-item{display:flex;align-items:center;gap:7px;font-size:9px;}
+  .conf-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .conf-dot.on {background:var(--green);box-shadow:0 0 5px rgba(0,230,118,.6);}
+  .conf-dot.off{background:var(--bg3);border:1px solid var(--border);}
+  .conf-label{color:var(--dim);}
+  .conf-label.on{color:var(--text);}
 
-  .chart-container {
-    width: 100%;
-    height: 380px;
-    background: #000;
-    border-bottom: 1px solid var(--border);
-  }
+  /* ── STATS ── */
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:0 12px 8px;}
+  .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:9px 6px;text-align:center;}
+  .stat-label{font-size:7px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;}
+  .stat-value{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;}
+  .stat-value.green {color:var(--green);}
+  .stat-value.yellow{color:var(--yellow);}
+  .stat-value.blue  {color:var(--blue);}
+  .stat-value.red   {color:var(--red);}
 
-  .chart-container iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    display: block;
-  }
+  /* ── HISTORY ── */
+  .history-section{padding:0 12px 90px;}
+  .section-title{font-size:8px;letter-spacing:3px;color:var(--dim);margin-bottom:7px;}
+  .history-item{display:flex;align-items:center;gap:9px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:9px 11px;margin-bottom:5px;}
+  .hist-dir{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:3px 7px;border-radius:4px;letter-spacing:1px;flex-shrink:0;}
+  .hist-dir.call{background:rgba(0,230,118,.15);color:var(--green);border:1px solid rgba(0,230,118,.3);}
+  .hist-dir.put {background:rgba(255,23,68,.15); color:var(--red);  border:1px solid rgba(255,23,68,.3);}
+  .hist-info{flex:1;min-width:0;}
+  .hist-pair  {font-size:10px;color:var(--text);}
+  .hist-detail{font-size:8px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hist-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;}
+  .hist-result{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;}
+  .hist-result.win {background:rgba(0,230,118,.1);color:var(--green);}
+  .hist-result.loss{background:rgba(255,23,68,.1); color:var(--red);}
+  .hist-pct{font-size:8px;color:var(--dim);}
 
-  .signal-box {
-    margin: 14px 16px 10px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--bg2);
-    overflow: hidden;
-    transition: border-color 0.3s, box-shadow 0.3s;
-  }
+  .aviso{margin:0 12px 8px;background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.2);border-radius:7px;padding:7px 11px;font-size:8px;color:var(--yellow);letter-spacing:1px;line-height:1.6;}
 
-  .signal-box.buy  { border-color: var(--green); box-shadow: 0 0 20px rgba(0,230,118,0.1); }
-  .signal-box.sell { border-color: var(--red);   box-shadow: 0 0 20px rgba(255,23,68,0.1); }
+  /* ── ENTRY INDICATOR ── */
+  .entry-box{margin:0 12px 8px;border-radius:12px;border:2px solid var(--border);background:var(--bg2);overflow:hidden;display:none;}
+  .entry-box.show{display:block;}
+  .entry-box.go   {border-color:var(--green);box-shadow:0 0 20px rgba(0,230,118,.2);}
+  .entry-box.wait {border-color:var(--yellow);box-shadow:0 0 20px rgba(255,214,0,.15);}
+  .entry-box.miss {border-color:var(--red);box-shadow:0 0 20px rgba(255,23,68,.1);}
 
-  .signal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 16px;
-    background: var(--bg3);
-    border-bottom: 1px solid var(--border);
-  }
+  .entry-main{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 14px;}
+  .entry-icon{font-size:28px;}
+  .entry-text{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;letter-spacing:3px;}
+  .entry-text.go  {color:var(--green);text-shadow:0 0 20px rgba(0,230,118,.5);}
+  .entry-text.wait{color:var(--yellow);}
+  .entry-text.miss{color:var(--red);}
 
-  .signal-status {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: var(--dim);
-  }
+  .entry-detail{display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border);}
+  .entry-cell{padding:8px;text-align:center;border-right:1px solid var(--border);}
+  .entry-cell:last-child{border-right:none;}
+  .entry-cell-label{font-size:7px;color:var(--dim);letter-spacing:2px;margin-bottom:4px;}
+  .entry-cell-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--text);}
+  .entry-cell-val.green {color:var(--green);}
+  .entry-cell-val.yellow{color:var(--yellow);}
+  .entry-cell-val.red   {color:var(--red);}
 
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); }
-  .status-dot.active { background: var(--green); animation: pulse 1s infinite; }
+  .entry-vela-bar{padding:8px 14px;border-top:1px solid var(--border);}
+  .entry-vela-label{font-size:7px;color:var(--dim);letter-spacing:2px;margin-bottom:5px;display:flex;justify-content:space-between;}
+  .entry-vela-track{width:100%;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;border:1px solid var(--border);}
+  .entry-vela-fill{height:100%;border-radius:4px;transition:width .5s linear;}
+  .entry-vela-fill.safe  {background:linear-gradient(90deg,#00c853,#00e676);}
+  .entry-vela-fill.warn  {background:linear-gradient(90deg,#f57f17,#ffd600);}
+  .entry-vela-fill.danger{background:linear-gradient(90deg,#b71c1c,#ff1744);}
 
-  .countdown {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--yellow);
-  }
-
-  .signal-main { padding: 14px 16px 10px; text-align: center; }
-
-  .signal-direction {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 34px;
-    font-weight: 900;
-    letter-spacing: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-  }
-
-  .signal-direction.buy     { color: var(--green); text-shadow: 0 0 30px rgba(0,230,118,0.5); }
-  .signal-direction.sell    { color: var(--red);   text-shadow: 0 0 30px rgba(255,23,68,0.5); }
-  .signal-direction.waiting { color: var(--dim); font-size: 16px; }
-
-  .signal-meta {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-  }
-
-  .meta-item { text-align: center; }
-  .meta-label { font-size: 9px; color: var(--dim); letter-spacing: 2px; margin-bottom: 4px; }
-
-  .meta-value {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text);
-  }
-
-  .meta-value.buy  { color: var(--green); }
-  .meta-value.sell { color: var(--red); }
-
-  .signal-pattern {
-    padding: 8px 16px 12px;
-    font-size: 11px;
-    color: var(--blue);
-    letter-spacing: 1px;
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .pattern-tag {
-    background: rgba(0,176,255,0.1);
-    border: 1px solid rgba(0,176,255,0.3);
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 10px;
-  }
-
-  .chance-box {
-    margin: 0 16px 14px;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 16px;
-  }
-
-  .chance-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-  }
-
-  .chance-label { font-size: 9px; letter-spacing: 3px; color: var(--dim); }
-
-  .chance-pct {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 24px;
-    font-weight: 900;
-    transition: color 0.4s;
-  }
-
-  .chance-pct.high   { color: var(--green); text-shadow: 0 0 16px rgba(0,230,118,0.5); }
-  .chance-pct.medium { color: var(--yellow); }
-  .chance-pct.low    { color: var(--red); }
-  .chance-pct.none   { color: var(--dim); }
-
-  .chance-track {
-    width: 100%;
-    height: 12px;
-    background: var(--bg3);
-    border-radius: 6px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    margin-bottom: 8px;
-  }
-
-  .chance-fill {
-    height: 100%;
-    border-radius: 6px;
-    transition: width 0.9s cubic-bezier(.4,0,.2,1);
-    width: 0%;
-  }
-
-  .chance-fill.high   { background: linear-gradient(90deg,#00c853,#00e676); box-shadow: 0 0 10px rgba(0,230,118,0.5); }
-  .chance-fill.medium { background: linear-gradient(90deg,#f57f17,#ffd600); }
-  .chance-fill.low    { background: linear-gradient(90deg,#b71c1c,#ff1744); }
-  .chance-fill.none   { background: var(--dim); }
-
-  .chance-ticks {
-    display: flex;
-    justify-content: space-between;
-    font-size: 9px;
-    color: var(--dim);
-    margin-bottom: 8px;
-  }
-
-  .chance-rating {
-    text-align: center;
-    font-size: 10px;
-    letter-spacing: 2px;
-    padding-top: 6px;
-    border-top: 1px solid var(--border);
-  }
-
-  .stats-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
-    padding: 0 16px 14px;
-  }
-
-  .stat-card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px;
-    text-align: center;
-  }
-
-  .stat-label { font-size: 9px; color: var(--dim); letter-spacing: 2px; margin-bottom: 6px; }
-  .stat-value { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 700; }
-  .stat-value.green  { color: var(--green); }
-  .stat-value.yellow { color: var(--yellow); }
-  .stat-value.blue   { color: var(--blue); }
-
-  .history-section { padding: 0 16px 90px; }
-  .section-title { font-size: 10px; letter-spacing: 3px; color: var(--dim); margin-bottom: 10px; }
-
-  .history-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-bottom: 8px;
-  }
-
-  .hist-dir {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 5px 10px;
-    border-radius: 5px;
-    letter-spacing: 1px;
-  }
-
-  .hist-dir.call { background: rgba(0,230,118,0.15); color: var(--green); border: 1px solid rgba(0,230,118,0.3); }
-  .hist-dir.put  { background: rgba(255,23,68,0.15);  color: var(--red);   border: 1px solid rgba(255,23,68,0.3); }
-
-  .hist-info { flex: 1; }
-  .hist-pair   { font-size: 12px; color: var(--text); letter-spacing: 1px; }
-  .hist-detail { font-size: 10px; color: var(--dim); margin-top: 2px; }
-
-  .hist-result {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 4px;
-  }
-
-  .hist-result.win  { background: rgba(0,230,118,0.1); color: var(--green); }
-  .hist-result.loss { background: rgba(255,23,68,0.1);  color: var(--red); }
-
-  nav {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    background: var(--bg2);
-    border-top: 1px solid var(--border);
-    padding: 10px 0 14px;
-    z-index: 100;
-  }
-
-  .nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    opacity: 0.4;
-  }
-
-  .nav-item.active { opacity: 1; color: var(--green); }
-  .nav-icon  { font-size: 20px; }
-  .nav-label { font-size: 9px; letter-spacing: 2px; }
+  nav{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(3,1fr);background:var(--bg2);border-top:1px solid var(--border);padding:7px 0 11px;z-index:100;}
+  .nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;opacity:.35;}
+  .nav-item.active{opacity:1;color:var(--green);}
+  .nav-icon{font-size:17px;}
+  .nav-label{font-size:7px;letter-spacing:2px;}
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">LÓGICA DO PREÇO</div>
-  <div class="live-badge"><div class="live-dot"></div>AO VIVO</div>
+  <div class="header-right">
+    <div class="tf-toggle">
+      <button class="tf-btn active" onclick="setTimeframe('1min','1',this)">M1</button>
+      <button class="tf-btn" onclick="setTimeframe('5min','5',this)">M5</button>
+    </div>
+    <div class="live-badge"><div class="live-dot"></div>AO VIVO</div>
+  </div>
 </header>
 
-<div class="asset-bar">
-  <button class="asset-btn active" onclick="changeAsset('EUR/USD','FX:EURUSD',this)">EUR/USD</button>
-  <button class="asset-btn" onclick="changeAsset('GBP/USD','FX:GBPUSD',this)">GBP/USD</button>
-  <button class="asset-btn" onclick="changeAsset('USD/JPY','FX:USDJPY',this)">USD/JPY</button>
-  <button class="asset-btn" onclick="changeAsset('AUD/USD','FX:AUDUSD',this)">AUD/USD</button>
-  <button class="asset-btn" onclick="changeAsset('USD/CAD','FX:USDCAD',this)">USD/CAD</button>
+<div class="news-banner" id="news-banner">
+  📰 <span id="news-text">Notícia detectada — Sinais suspensos</span>
 </div>
 
-<!-- CHART -->
+<div class="asset-bar">
+  <div>
+    <div class="asset-section-label">☀ DIA</div>
+    <div class="asset-row" style="margin-top:4px">
+      <button class="asset-btn active" onclick="changeAsset('EUR/USD','FX:EURUSD',this)">EUR/USD</button>
+      <button class="asset-btn" onclick="changeAsset('GBP/USD','FX:GBPUSD',this)">GBP/USD</button>
+      <button class="asset-btn" onclick="changeAsset('AUD/USD','FX:AUDUSD',this)">AUD/USD</button>
+      <button class="asset-btn" onclick="changeAsset('USD/CAD','FX:USDCAD',this)">USD/CAD</button>
+      <button class="asset-btn" onclick="changeAsset('USD/CHF','FX:USDCHF',this)">USD/CHF</button>
+    </div>
+  </div>
+  <div>
+    <div class="asset-section-label night">🌙 NOITE (Ásia)</div>
+    <div class="asset-row" style="margin-top:4px">
+      <button class="asset-btn noite" onclick="changeAsset('USD/JPY','FX:USDJPY',this)">USD/JPY</button>
+      <button class="asset-btn noite" onclick="changeAsset('GBP/JPY','FX:GBPJPY',this)">GBP/JPY</button>
+      <button class="asset-btn noite" onclick="changeAsset('AUD/JPY','FX:AUDJPY',this)">AUD/JPY</button>
+      <button class="asset-btn noite" onclick="changeAsset('EUR/JPY','FX:EURJPY',this)">EUR/JPY</button>
+      <button class="asset-btn noite" onclick="changeAsset('EUR/GBP','FX:EURGBP',this)">EUR/GBP</button>
+    </div>
+  </div>
+</div>
+
 <div class="chart-container">
   <iframe id="tv-chart" src="" allowtransparency="true" frameborder="0" scrolling="no" allowfullscreen></iframe>
+</div>
+
+<!-- VELA COUNTDOWN BAR -->
+<div class="vela-bar">
+  <div class="vela-bar-label">VELA FECHA EM</div>
+  <div class="vela-track-wrap">
+    <div class="vela-track">
+      <div class="vela-fill safe" id="vela-fill" style="width:0%"></div>
+    </div>
+  </div>
+  <div class="vela-secs safe" id="vela-secs">—</div>
+  <div class="vela-name safe" id="vela-name">M1</div>
+</div>
+
+<!-- ADX PANEL -->
+<div class="adx-box">
+  <div class="adx-header">
+    <div class="adx-title">ADX — FORÇA DO MERCADO (período 14)</div>
+    <div class="adx-val-wrap">
+      <div class="adx-num none" id="adx-num">—</div>
+      <div class="adx-lbl">ADX</div>
+    </div>
+  </div>
+  <div class="adx-di-row">
+    <div class="adx-di">
+      <div class="adx-di-label">+DI — FORÇA COMPRADORA</div>
+      <div class="adx-di-val up" id="adx-plus">—</div>
+    </div>
+    <div class="adx-di">
+      <div class="adx-di-label">−DI — FORÇA VENDEDORA</div>
+      <div class="adx-di-val down" id="adx-minus">—</div>
+    </div>
+  </div>
+  <div class="adx-track">
+    <div class="adx-fill none" id="adx-fill" style="width:0%"></div>
+    <div class="adx-mark" style="left:20%"></div>
+    <div class="adx-mark" style="left:50%"></div>
+  </div>
+  <div class="adx-zones">
+    <span>0</span><span>20 LATERAL</span><span>50 FORTE</span><span>100</span>
+  </div>
+  <div class="adx-status" id="adx-status" style="color:var(--dim)">Calculando ADX...</div>
+</div>
+
+<div class="adx-blocked" id="adx-blocked">
+  ⛔ ADX ABAIXO DE 20 — Mercado lateral sem força.<br>Sinais suspensos até o ADX subir acima de 20.
 </div>
 
 <!-- SIGNAL BOX -->
@@ -404,414 +311,833 @@
     <div class="signal-direction waiting" id="signal-direction">AGUARDANDO SINAL</div>
   </div>
   <div class="signal-meta">
-    <div class="meta-item">
-      <div class="meta-label">DIREÇÃO</div>
-      <div class="meta-value" id="meta-dir">—</div>
-    </div>
-    <div class="meta-item">
-      <div class="meta-label">EXPIRAÇÃO</div>
-      <div class="meta-value">1 MIN</div>
-    </div>
-    <div class="meta-item">
-      <div class="meta-label">ENTRADA</div>
-      <div class="meta-value" id="meta-entry">—</div>
-    </div>
+    <div class="meta-item"><div class="meta-label">DIREÇÃO</div><div class="meta-value" id="meta-dir">—</div></div>
+    <div class="meta-item"><div class="meta-label">EXPIRAÇÃO</div><div class="meta-value" id="meta-expiry">1 MIN</div></div>
+    <div class="meta-item"><div class="meta-label">ENTRADA</div><div class="meta-value" id="meta-entry">—</div></div>
   </div>
-  <div class="signal-pattern">
-    <span class="pattern-tag" id="pattern-tag">Buscando padrão...</span>
-    <span id="pattern-desc"></span>
+  <div class="signal-patterns" id="signal-patterns">
+    <span class="pattern-tag">Buscando padrão...</span>
   </div>
 </div>
 
-<!-- WIN CHANCE METER -->
+<!-- ENTRY INDICATOR -->
+<div class="entry-box" id="entry-box">
+  <div class="entry-main">
+    <div class="entry-icon" id="entry-icon">⏳</div>
+    <div class="entry-text" id="entry-text">AGUARDANDO</div>
+  </div>
+  <div class="entry-detail">
+    <div class="entry-cell">
+      <div class="entry-cell-label">MOMENTO</div>
+      <div class="entry-cell-val" id="entry-moment">—</div>
+    </div>
+    <div class="entry-cell">
+      <div class="entry-cell-label">TEMPO VELA</div>
+      <div class="entry-cell-val" id="entry-velatime">—</div>
+    </div>
+    <div class="entry-cell">
+      <div class="entry-cell-label">AÇÃO</div>
+      <div class="entry-cell-val" id="entry-action">—</div>
+    </div>
+  </div>
+  <div class="entry-vela-bar">
+    <div class="entry-vela-label">
+      <span>JANELA DA VELA</span>
+      <span id="entry-vela-pct">—</span>
+    </div>
+    <div class="entry-vela-track">
+      <div class="entry-vela-fill safe" id="entry-vela-fill" style="width:0%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CHANCE -->
 <div class="chance-box">
   <div class="chance-header">
-    <div class="chance-label">CHANCE DE VITÓRIA</div>
+    <div class="chance-label">PROBABILIDADE DE ACERTO</div>
     <div class="chance-pct none" id="chance-pct">—</div>
   </div>
-  <div class="chance-track">
-    <div class="chance-fill none" id="chance-fill"></div>
-  </div>
-  <div class="chance-ticks">
-    <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
-  </div>
+  <div class="chance-track"><div class="chance-fill none" id="chance-fill"></div></div>
+  <div class="chance-ticks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
   <div class="chance-rating" id="chance-rating" style="color:var(--dim)">Aguardando análise...</div>
 </div>
 
-<!-- STATS -->
-<div class="stats-row">
-  <div class="stat-card">
-    <div class="stat-label">SINAIS</div>
-    <div class="stat-value blue" id="stat-signals">0</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">ACERTOS</div>
-    <div class="stat-value green" id="stat-hits">0</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">TAXA</div>
-    <div class="stat-value yellow" id="stat-rate">0%</div>
+<!-- CONFLUÊNCIAS — 11 -->
+<div class="conf-box">
+  <div class="conf-title">CONFLUÊNCIAS DETECTADAS (11)</div>
+  <div class="conf-grid" id="conf-list">
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Vela de Comando</div></div>
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Vela de Força</div></div>
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Taxa Dividida</div></div>
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Lote Contrário</div></div>
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Pavio de Demanda</div></div>
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Fim de Taxa</div></div>
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Nova Alta/Baixa</div></div>
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Retração Pullback</div></div>
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Defesa de Região</div></div>
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Transferência Preço</div></div>
+    <div class="conf-item"><div class="conf-dot off"></div><div class="conf-label">Desistalação</div></div>
   </div>
 </div>
 
-<!-- HISTORY -->
+<div class="aviso">⚠ Valide sempre o sinal no gráfico antes de operar. ADX &lt; 20 = mercado lateral, evite operar. Ativos 🌙 melhores entre 21h–06h BRT.</div>
+
+<div class="stats-row">
+  <div class="stat-card"><div class="stat-label">SINAIS</div><div class="stat-value blue" id="stat-signals">0</div></div>
+  <div class="stat-card"><div class="stat-label">ACERTOS</div><div class="stat-value green" id="stat-hits">0</div></div>
+  <div class="stat-card"><div class="stat-label">ERROS</div><div class="stat-value red" id="stat-miss">0</div></div>
+  <div class="stat-card"><div class="stat-label">ASSERTIV.</div><div class="stat-value yellow" id="stat-rate">—</div></div>
+</div>
+
 <div class="history-section">
-  <div class="section-title">HISTÓRICO</div>
+  <div class="section-title">HISTÓRICO — 30 ÚLTIMOS SINAIS</div>
   <div id="history-list"></div>
 </div>
 
 <nav>
-  <div class="nav-item active">
-    <div class="nav-icon">⌂</div>
-    <div class="nav-label">INÍCIO</div>
-  </div>
-  <div class="nav-item">
-    <div class="nav-icon">◈</div>
-    <div class="nav-label">SINAIS</div>
-  </div>
-  <div class="nav-item">
-    <div class="nav-icon">◎</div>
-    <div class="nav-label">ACADEMIA</div>
-  </div>
-  <div class="nav-item">
-    <div class="nav-icon">⚙</div>
-    <div class="nav-label">CONFIG</div>
-  </div>
+  <div class="nav-item active"><div class="nav-icon">⌂</div><div class="nav-label">INÍCIO</div></div>
+  <div class="nav-item"><div class="nav-icon">◈</div><div class="nav-label">SINAIS</div></div>
+  <div class="nav-item"><div class="nav-icon">⚙</div><div class="nav-label">CONFIG</div></div>
 </nav>
 
 <script>
-  // ── CHART ─────────────────────────────────────────
-  function loadChart(symbol) {
-    const url = `https://s.tradingview.com/widgetembed/?frameElementId=tv-chart&symbol=${symbol}&interval=1&hidesidetoolbar=0&symboledit=0&saveimage=0&toolbarbg=0f1522&theme=dark&style=1&timezone=America%2FSao_Paulo&locale=br`;
-    document.getElementById('tv-chart').src = url;
+// ══════════════════════════════════════════════
+//  LÓGICA DO PREÇO — ENGINE v4.1
+//  11 Confluências · ADX integrado · M1/M5
+//  10 ativos · Filtro notícias · Histórico 30
+// ══════════════════════════════════════════════
+const API_KEY   = '0c36cfcd57ab469aa60d338370cd354f';
+let TOLERANCE = 0.00002; // 0,2 pip — recalculado por par em resetDisplay()
+let signalCandleDT = null, candleDTForSignal = null; // vela do sinal (para medir o resultado na expiração)
+let lastTopDT = null, staleRetries = 0;              // controle de dados atrasados
+
+let currentPair = 'EUR/USD', currentSymbol = 'EUR/USD';
+let currentTF = '1min', currentTFChart = '1';
+let signals = 0, hits = 0, misses = 0;
+let historyData = [], countdownTimer = null, fetchTimer = null;
+let lastSignalTime = 0, waitingResult = false;
+let lastSignalDir = null, lastEntry = null, lastPatterns = [], lastChance = 0;
+let newsBlocked = false, adxBlocked = false;
+let pendingSignal = null;   // sinal que chegou durante countdown ativo
+let countdownActive = false; // true enquanto countdown está rodando
+
+const symbolMap = {
+  'EUR/USD':'EUR/USD','GBP/USD':'GBP/USD','AUD/USD':'AUD/USD',
+  'USD/CAD':'USD/CAD','USD/CHF':'USD/CHF','USD/JPY':'USD/JPY',
+  'GBP/JPY':'GBP/JPY','AUD/JPY':'AUD/JPY','EUR/JPY':'EUR/JPY','EUR/GBP':'EUR/GBP'
+};
+
+// ── TIMEFRAME ──────────────────────────────────
+function setTimeframe(tf, tfChart, btn) {
+  currentTF = tf; currentTFChart = tfChart;
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('meta-expiry').textContent = tf === '1min' ? '1 MIN' : '5 MIN';
+  resetDisplay();
+}
+
+function loadChart(symbol) {
+  // Inclui ADX no gráfico via TradingView (estudos via URL não suportados no widget free,
+  // mas o gráfico mostra candles para o usuário adicionar ADX manualmente)
+  document.getElementById('tv-chart').src =
+    `https://s.tradingview.com/widgetembed/?frameElementId=tv-chart&symbol=${symbol}&interval=${currentTFChart}&hidesidetoolbar=0&symboledit=0&saveimage=0&toolbarbg=0f1522&theme=dark&style=1&timezone=America%2FSao_Paulo&locale=br&studies=ADX%4014`;
+}
+
+function changeAsset(pair, tvSymbol, btn) {
+  currentPair = pair; currentSymbol = symbolMap[pair];
+  document.querySelectorAll('.asset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadChart(tvSymbol);
+  resetDisplay();
+}
+
+// ── FILTRO DE NOTÍCIAS ─────────────────────────
+function checkNews() {
+  const cur = currentPair.split('/');
+  const now = new Date(), h = now.getHours(), dow = now.getDay();
+  const janelas = [
+    {dow:-1,hI:6, hF:7, cur:['GBP','EUR','CHF'],label:'Abertura Londres'},
+    {dow:-1,hI:10,hF:11,cur:['USD','GBP','EUR'],label:'Abertura NY / Dados EUA'},
+    {dow:5, hI:10,hF:11,cur:['USD'],             label:'NFP — Payroll EUA'},
+    {dow:-1,hI:9, hF:11,cur:['GBP','EUR'],       label:'Decisão Banco Central'},
+  ];
+  let blocked = false, label = '';
+  for (const j of janelas) {
+    if ((j.dow===-1||j.dow===dow) && h>=j.hI && h<=j.hF && j.cur.some(c=>cur.includes(c))) {
+      blocked=true; label=j.label; break;
+    }
+  }
+  newsBlocked = blocked;
+  const banner = document.getElementById('news-banner');
+  if (blocked) {
+    banner.classList.add('show');
+    document.getElementById('news-text').textContent = `⚠ ${label} — Sinais suspensos por segurança`;
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+// ══════════════════════════════════════════════
+//  ADX — CÁLCULO MANUAL (14 períodos, Wilder)
+//  ADX < 20  → lateral, bloqueia sinais
+//  ADX 20-25 → tendência formando
+//  ADX > 25  → tendência confirmada ✅
+//  ADX > 40  → tendência muito forte
+//  +DI > -DI → força compradora
+//  -DI > +DI → força vendedora
+// ══════════════════════════════════════════════
+function calcADX(cs) {
+  const p = 14;
+  if (cs.length < p + 2) return null;
+
+  const tr=[], pdm=[], ndm=[];
+  for (let i = 1; i < cs.length; i++) {
+    const c=cs[i], prev=cs[i-1];
+    tr.push(Math.max(c.high-c.low, Math.abs(c.high-prev.close), Math.abs(c.low-prev.close)));
+    const up=c.high-prev.high, dn=prev.low-c.low;
+    pdm.push(up>dn&&up>0?up:0);
+    ndm.push(dn>up&&dn>0?dn:0);
   }
 
-  // ── STATE ─────────────────────────────────────────
-  const API_KEY = '0c36cfcd57ab469aa60d338370cd354f';
-  let currentPair = 'EUR/USD';
-  let currentSymbol = 'EUR/USD';
-  let signals = 0, hits = 0;
-  let historyData = [];
-  let countdownTimer = null;
-  let fetchTimer = null;
-  let lastSignalTime = 0;
-  let waitingResult = false;
-  let lastSignalDir = null;
-  let lastEntry = null;
-  let lastPattern = null;
+  // Suavização de Wilder
+  function wilder(arr, period) {
+    let sm = arr.slice(0, period).reduce((a,b)=>a+b, 0);
+    const out = [sm];
+    for (let i = period; i < arr.length; i++) {
+      sm = sm - sm/period + arr[i];
+      out.push(sm);
+    }
+    return out;
+  }
 
-  // Mapa de par -> símbolo Twelve Data
-  const symbolMap = {
-    'EUR/USD': 'EUR/USD',
-    'GBP/USD': 'GBP/USD',
-    'USD/JPY': 'USD/JPY',
-    'AUD/USD': 'AUD/USD',
-    'USD/CAD': 'USD/CAD',
+  const sTR  = wilder(tr,  p);
+  const sPDM = wilder(pdm, p);
+  const sNDM = wilder(ndm, p);
+
+  const diPlus  = sPDM.map((v,i) => sTR[i]>0 ? (v/sTR[i])*100 : 0);
+  const diMinus = sNDM.map((v,i) => sTR[i]>0 ? (v/sTR[i])*100 : 0);
+  const dx      = diPlus.map((v,i) => {
+    const sum = v + diMinus[i];
+    return sum > 0 ? Math.abs(v - diMinus[i]) / sum * 100 : 0;
+  });
+
+  // ADX = média suavizada do DX
+  let adxVal = dx.slice(0, p).reduce((a,b)=>a+b,0) / p;
+  for (let i = p; i < dx.length; i++) {
+    adxVal = (adxVal * (p-1) + dx[i]) / p;
+  }
+
+  return {
+    adx:    Math.round(adxVal * 10) / 10,
+    diPlus: Math.round(diPlus[diPlus.length-1] * 10) / 10,
+    diMinus:Math.round(diMinus[diMinus.length-1] * 10) / 10,
+  };
+}
+
+function updateADXPanel(result) {
+  if (!result) return;
+  const { adx, diPlus, diMinus } = result;
+
+  // Visual
+  document.getElementById('adx-num').textContent   = adx;
+  document.getElementById('adx-plus').textContent  = diPlus;
+  document.getElementById('adx-minus').textContent = diMinus;
+
+  const pct  = Math.min(adx / 60 * 100, 100); // escala até 60
+  const fill = document.getElementById('adx-fill');
+  fill.style.width = pct + '%';
+
+  let cls = 'none', statusTxt = '', statusColor = 'var(--dim)';
+  if (adx < 20) {
+    cls = 'weak'; statusTxt = '⚠ MERCADO LATERAL — Sem força direcional. Não operar.'; statusColor = 'var(--red)';
+    adxBlocked = true;
+    document.getElementById('adx-blocked').classList.add('show');
+  } else if (adx < 25) {
+    cls = 'forming'; statusTxt = '◆ TENDÊNCIA FORMANDO — Operar com cautela'; statusColor = 'var(--yellow)';
+    adxBlocked = false;
+    document.getElementById('adx-blocked').classList.remove('show');
+  } else if (adx < 40) {
+    cls = 'strong'; statusTxt = '✦ TENDÊNCIA CONFIRMADA — Bom momento para operar'; statusColor = 'var(--green)';
+    adxBlocked = false;
+    document.getElementById('adx-blocked').classList.remove('show');
+  } else {
+    cls = 'strong'; statusTxt = '🔥 TENDÊNCIA MUITO FORTE — Cuidado com reversões'; statusColor = 'var(--green)';
+    adxBlocked = false;
+    document.getElementById('adx-blocked').classList.remove('show');
+  }
+
+  document.getElementById('adx-num').className  = 'adx-num ' + cls;
+  fill.className = 'adx-fill ' + cls;
+  const st = document.getElementById('adx-status');
+  st.textContent = statusTxt; st.style.color = statusColor;
+}
+
+// ══════════════════════════════════════════════
+//  MÉTRICAS DE VELA
+// ══════════════════════════════════════════════
+function cm(c) {
+  const bH=Math.max(c.open,c.close), bL=Math.min(c.open,c.close);
+  const total=c.high-c.low, body=bH-bL;
+  return {total,body,upWick:c.high-bH,downWick:bL-c.low,
+          bodyRatio:total>0?body/total:0,bodyHi:bH,bodyLo:bL,
+          isBull:c.close>c.open,isBear:c.close<c.open};
+}
+
+// ══════════════════════════════════════════════
+//  11 CONFLUÊNCIAS — LÓGICA DO PREÇO
+// ══════════════════════════════════════════════
+
+// 1. VELA DE COMANDO — careca na abertura (sem pavio do lado que abre)
+function isComandoAlta(c)  { const m=cm(c); return m.isBull&&m.downWick<=TOLERANCE&&m.bodyRatio>=0.45; }
+function isComandoBaixa(c) { const m=cm(c); return m.isBear&&m.upWick<=TOLERANCE  &&m.bodyRatio>=0.45; }
+function isExpirado(c)     { const m=cm(c); return (m.isBull&&m.upWick<=TOLERANCE)||(m.isBear&&m.downWick<=TOLERANCE); }
+
+// 2. VELA DE FORÇA — pavio na abertura + corpo forte
+function isVelaForcaAlta(c)  { const m=cm(c); return m.isBull&&m.downWick>TOLERANCE&&m.bodyRatio>=0.38; }
+function isVelaForcaBaixa(c) { const m=cm(c); return m.isBear&&m.upWick>TOLERANCE  &&m.bodyRatio>=0.38; }
+
+// 3. TAXA DIVIDIDA — comando interrompe continuidade
+function taxaDividida(cs) {
+  const c1=cs[1],c2=cs[2];
+  if (cm(c2).isBull&&isComandoBaixa(c1)) return 'sell';
+  if (cm(c2).isBear&&isComandoAlta(c1))  return 'buy';
+  if (isExpirado(c2)&&isVelaForcaBaixa(c1)) return 'sell';
+  if (isExpirado(c2)&&isVelaForcaAlta(c1))  return 'buy';
+  return null;
+}
+
+// 4. LOTE DE COR CONTRÁRIA — travou = reverte
+function loteContra(cs) {
+  const m=[0,1,2,3].map(i=>cm(cs[i]));
+  if (m[1].isBull&&m[2].isBull&&m[3].isBull&&m[0].isBear) return 'sell';
+  if (m[1].isBear&&m[2].isBear&&m[3].isBear&&m[0].isBull) return 'buy';
+  if (m[0].isBull&&m[1].isBear&&m[2].isBull) return 'buy';  // nano-lote vermelho
+  if (m[0].isBear&&m[1].isBull&&m[2].isBear) return 'sell'; // nano-lote verde
+  return null;
+}
+
+// 5. PAVIO DE DEMANDA — pavio inferior=compra, superior=venda
+function pavioDemanda(cs) {
+  const m=cm(cs[1]); if(!m.total) return null;
+  if (m.downWick/m.total>=0.42) return 'buy';
+  if (m.upWick  /m.total>=0.42) return 'sell';
+  return null;
+}
+
+// 6. FIM DE TAXA / EXPIRADO — exaustão do movimento
+function fimDeTaxa(cs) {
+  const m1=cm(cs[1]),m2=cm(cs[2]);
+  if (isExpirado(cs[1])&&m1.isBull&&m2.isBull) return 'sell';
+  if (isExpirado(cs[1])&&m1.isBear&&m2.isBear) return 'buy';
+  return null;
+}
+
+// 7. NOVA ALTA / NOVA BAIXA — rompeu máxima/mínima e deixou pavio
+function novaAltaBaixa(cs) {
+  const c1=cs[1],c2=cs[2],c3=cs[3],m1=cm(c1);
+  if (c1.high>Math.max(c2.high,c3.high)&&m1.upWick>TOLERANCE)   return 'buy';
+  if (c1.low <Math.min(c2.low, c3.low) &&m1.downWick>TOLERANCE) return 'sell';
+  return null;
+}
+
+// 8. RETRAÇÃO / PULLBACK — vela atual buscando os 50% de c1
+function retracao(cs) {
+  const c0=cs[0],c1=cs[1],m1=cm(c1),meio=(c1.open+c1.close)/2;
+  if (m1.isBull&&c0.low <=meio&&c0.close>c1.open) return 'buy';
+  if (m1.isBear&&c0.high>=meio&&c0.close<c1.open) return 'sell';
+  return null;
+}
+
+// 9. DEFESA DE REGIÃO — preço toca abertura de vela anterior e retrai
+// Os pontos fortes de defesa são as regiões de abertura dos candles
+function defesaRegiao(cs) {
+  const c0=cs[0],c1=cs[1],c2=cs[2],c3=cs[3];
+  const m0=cm(c0),m1=cm(c1);
+  // Movimento de alta: c0 vermelho toca abertura de c2 ou c3 (defesa) e retrai
+  if (m1.isBull&&m0.isBear) {
+    const defLevel = c2.open; // abertura da vela de reversão
+    if (c0.low<=defLevel&&c0.low>=defLevel-TOLERANCE*5) return 'buy';
+  }
+  // Movimento de baixa: c0 verde toca abertura de c2 ou c3 (defesa) e retrai
+  if (m1.isBear&&m0.isBull) {
+    const defLevel = c2.open;
+    if (c0.high>=defLevel&&c0.high<=defLevel+TOLERANCE*5) return 'sell';
+  }
+  // Defesa nos 50% da vela de força/comando anterior
+  const meio2 = (c2.open+c2.close)/2;
+  if (m0.isBear&&c0.low<=meio2) return 'buy';
+  if (m0.isBull&&c0.high>=meio2) return 'sell';
+  return null;
+}
+
+// 10. TRANSFERÊNCIA DE PREÇO — pavios da MESMA cor se conectam = continuidade
+// Ocorre quando a vela trava na simetria, retrai, e NÃO muda de cor
+function transferenciaPrco(cs) {
+  const c0=cs[0],c1=cs[1],c2=cs[2];
+  const m0=cm(c0),m1=cm(c1),m2=cm(c2);
+  // Mesma cor c1 e c2, pavio de c1 conectado ao corpo de c2 = transferência
+  if (m1.isBull&&m2.isBull) {
+    // Pavio inferior de c1 toca máxima de c2 = continuidade de alta
+    if (Math.abs(c1.low - c2.high) <= TOLERANCE*3 && m0.isBull) return 'buy';
+  }
+  if (m1.isBear&&m2.isBear) {
+    // Pavio superior de c1 toca mínima de c2 = continuidade de baixa
+    if (Math.abs(c1.high - c2.low) <= TOLERANCE*3 && m0.isBear) return 'sell';
+  }
+  return null;
+}
+
+// 11. DESISTALAÇÃO — pavios de CORES OPOSTAS se conectam = reversão
+// Ocorre quando a vela trava na simetria, retrai, e MUDA de cor
+function desistalacao(cs) {
+  const c1=cs[1],c2=cs[2];
+  const m1=cm(c1),m2=cm(c2);
+  // c2 vermelho, c1 verde: pavio superior de c2 toca pavio inferior de c1 = reversão para cima
+  if (m2.isBear&&m1.isBull) {
+    if (Math.abs(c2.high - c1.low) <= TOLERANCE*4) return 'buy';
+  }
+  // c2 verde, c1 vermelho: pavio inferior de c2 toca pavio superior de c1 = reversão para baixo
+  if (m2.isBull&&m1.isBear) {
+    if (Math.abs(c2.low - c1.high) <= TOLERANCE*4) return 'sell';
+  }
+  return null;
+}
+
+// TENDÊNCIA GERAL
+function tendencia(cs) {
+  const cl=cs.slice(1,7).map(c=>c.close); let u=0,d=0;
+  for(let i=0;i<cl.length-1;i++) cl[i]>cl[i+1]?u++:d++;
+  return u>=4?'up':d>=4?'down':'lateral';
+}
+
+// ══════════════════════════════════════════════
+//  MOTOR PRINCIPAL — 11 CONFLUÊNCIAS
+// ══════════════════════════════════════════════
+function analyzeCandles(cs) {
+  if (cs.length < 5) return;
+  if (newsBlocked || adxBlocked) return;
+
+  const m1=cm(cs[1]);
+  if (m1.bodyRatio < 0.10) return; // doji puro = ignora
+
+  // Avalia todas as 11 confluências
+  const evid = {
+    comando:      isComandoAlta(cs[1])?'buy':isComandoBaixa(cs[1])?'sell':null,
+    forca:        isVelaForcaAlta(cs[1])?'buy':isVelaForcaBaixa(cs[1])?'sell':null,
+    taxa:         taxaDividida(cs),
+    lote:         loteContra(cs),
+    pavio:        pavioDemanda(cs),
+    fim:          fimDeTaxa(cs),
+    nova:         novaAltaBaixa(cs),
+    ret:          retracao(cs),
+    defesa:       defesaRegiao(cs),
+    transferencia:transferenciaPrco(cs),
+    desist:       desistalacao(cs),
   };
 
-  function changeAsset(pair, tvSymbol, btn) {
-    currentPair = pair;
-    currentSymbol = symbolMap[pair];
-    document.querySelectorAll('.asset-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    loadChart(tvSymbol);
-    resetDisplay();
-  }
+  let votoBuy=0, votoSell=0;
+  const conf = Array(11).fill(false);
+  const keys = ['comando','forca','taxa','lote','pavio','fim','nova','ret','defesa','transferencia','desist'];
 
-  function resetDisplay() {
-    clearInterval(countdownTimer);
-    clearInterval(fetchTimer);
-    waitingResult = false;
-    lastSignalDir = null;
+  keys.forEach((k,i) => {
+    if (evid[k]==='buy')  { votoBuy++;  conf[i]=true; }
+    if (evid[k]==='sell') { votoSell++; conf[i]=true; }
+  });
 
-    document.getElementById('signal-box').className = 'signal-box';
-    document.getElementById('signal-direction').className = 'signal-direction waiting';
-    document.getElementById('signal-direction').textContent = 'AGUARDANDO SINAL';
-    document.getElementById('status-dot').className = 'status-dot';
-    document.getElementById('status-text').textContent = 'ANALISANDO';
-    document.getElementById('countdown').textContent = '';
-    document.getElementById('meta-dir').textContent = '—';
-    document.getElementById('meta-dir').className = 'meta-value';
-    document.getElementById('meta-entry').textContent = '—';
-    document.getElementById('pattern-tag').textContent = 'Buscando padrão...';
-    document.getElementById('pattern-desc').textContent = '';
-    setChance(0, false);
+  const maxV = Math.max(votoBuy, votoSell);
+  if (maxV < 2) return; // mínimo 2 confluências
 
-    // Busca velas imediatamente e depois a cada 60s
-    fetchAndAnalyze();
-    fetchTimer = setInterval(fetchAndAnalyze, 60000);
-  }
+  const isBuy = votoBuy >= votoSell;
+  const fav   = isBuy ? votoBuy  : votoSell;
+  const con   = isBuy ? votoSell : votoBuy;
+  if (con >= fav) return; // conflito = ignora
 
-  // ── BUSCA VELAS REAIS ─────────────────────────────
-  async function fetchAndAnalyze() {
-    try {
-      const url = `https://api.twelvedata.com/time_series?symbol=${currentSymbol}&interval=1min&outputsize=10&apikey=${API_KEY}`;
-      const res = await fetch(url);
-      const data = await res.json();
+  // Bônus de tendência e timeframe
+  const tend = tendencia(cs);
+  let bonus = 0;
+  if ((isBuy&&tend==='up')||(!isBuy&&tend==='down')) bonus = 5;
+  if (currentTF === '5min') bonus += 5;
 
-      if (!data.values || data.values.length < 3) return;
+  // Chance: base 50 + 7 por confluência + bônus + body strength
+  const chance = Math.min(50 + fav*7 + bonus + Math.floor(m1.bodyRatio*10), 93);
 
-      // Velas: [0] = mais recente (ainda aberta), [1] = última fechada, [2] = anterior
-      const candles = data.values.map(v => ({
-        open:  parseFloat(v.open),
-        high:  parseFloat(v.high),
-        low:   parseFloat(v.low),
-        close: parseFloat(v.close),
-        datetime: v.datetime
-      }));
+  const nomes = ['Vela de Comando','Vela de Força','Taxa Dividida','Lote Contrário',
+                 'Pavio Demanda','Fim de Taxa','Nova Alta/Baixa','Retração',
+                 'Defesa de Região','Transferência Preço','Desistalação'];
+  const tags  = conf.map((on,i) => on ? nomes[i] : null).filter(Boolean);
 
-      // Se estamos aguardando resultado de um sinal anterior
-      if (waitingResult && lastSignalDir !== null) {
-        checkResult(candles[0]);
-        return;
-      }
+  candleDTForSignal = cs[0].dt;
+  fireSignal(isBuy, tags, chance, cs[0].close.toFixed(currentPair.includes('JPY')?3:5), conf);
+}
 
-      analyzeCandles(candles);
+// ── DISPARA SINAL ──────────────────────────────
+function fireSignal(isBuy, tags, chance, entry, conf) {
+  const now = Date.now();
+  const minGap = currentTF==='1min' ? 55000 : 270000;
 
-    } catch(e) {
-      console.error('Erro API:', e);
+  // Se countdown ativo E o sinal é diferente do atual → enfileira
+  if (countdownActive && lastSignalDir !== null) {
+    // Só enfileira se for direção diferente (novo sinal real) e passou tempo mínimo
+    if (now - lastSignalTime >= minGap * 0.5) {
+      pendingSignal = {isBuy, tags, chance, entry, conf, time: now};
     }
+    return;
   }
 
-  // ── ANALISA VELAS COM LÓGICA DO PREÇO ────────────
-  function analyzeCandles(candles) {
-    const c1 = candles[1]; // última vela fechada
-    const c2 = candles[2]; // vela anterior
-    const c3 = candles[3]; // 2 velas atrás
+  // Evita duplicata do mesmo sinal
+  if (now - lastSignalTime < minGap) return;
 
-    const totalSize1 = c1.high - c1.low;
-    const bodySize1  = Math.abs(c1.close - c1.open);
-    const bodyRatio1 = totalSize1 > 0 ? bodySize1 / totalSize1 : 0;
+  _mostrarSinal(isBuy, tags, chance, entry, conf);
+}
 
-    // ── REGRA 1: Corpo mínimo 30% (rompimento válido) ──
-    if (bodyRatio1 < 0.30) return; // vela fraca, ignora
+function _mostrarSinal(isBuy, tags, chance, entry, conf) {
+  lastSignalTime = Date.now();
+  lastSignalDir=isBuy; lastEntry=entry;
+  lastPatterns=tags; lastChance=chance; waitingResult=false;
+  countdownActive = true; pendingSignal = null;
+  signalCandleDT = candleDTForSignal;
 
-    const isBullish1 = c1.close > c1.open;
-    const isBearish1 = c1.close < c1.open;
+  document.getElementById('signal-box').className = 'signal-box '+(isBuy?'buy':'sell');
+  const dir = document.getElementById('signal-direction');
+  dir.className   = 'signal-direction '+(isBuy?'buy':'sell');
+  dir.textContent = isBuy ? '▲  COMPRA' : '▼  VENDA';
+  document.getElementById('status-dot').className = 'status-dot active';
+  document.getElementById('status-text').textContent = 'SINAL DETECTADO';
+  const md = document.getElementById('meta-dir');
+  md.textContent = isBuy?'CALL':'PUT'; md.className = 'meta-value '+(isBuy?'buy':'sell');
+  document.getElementById('meta-entry').textContent = entry;
+  document.getElementById('signal-patterns').innerHTML =
+    tags.map(t=>`<span class="pattern-tag ${isBuy?'buy':'sell'}">${t}</span>`).join('');
+  updateConf(conf); setChance(chance, true);
+  startEntryIndicator(isBuy);
 
-    let pattern = null;
-    let isBuy = null;
-    let confluences = 0;
-    let chance = 0;
+  const expSecs = currentTF==='1min' ? 60 : 300;
+  let secs = expSecs;
+  document.getElementById('countdown').textContent = fmt(secs);
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(()=>{
+    secs--;
+    document.getElementById('countdown').textContent = fmt(secs);
+    if (secs<=0) {
+      clearInterval(countdownTimer);
+      countdownActive = false;
+      waitingResult = true;
+      document.getElementById('status-text').textContent = 'AGUARDANDO RESULTADO...';
+      document.getElementById('status-dot').className = 'status-dot waiting';
+    }
+  }, 1000);
+}
 
-    // ── VELA DE COMANDO ───────────────────────────
-    // Vela com corpo >= 50% do total, fechando na direção
-    if (bodyRatio1 >= 0.50) {
-      confluences++;
-      pattern = { name: 'Vela de Comando', desc: 'Corpo forte na direção' };
-      isBuy = isBullish1;
+function fmt(s){ return s<60 ? s+'s' : Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+
+// ══════════════════════════════════════════════
+//  INDICADOR DE MOMENTO DE ENTRADA
+//  Calcula o segundo exato da vela atual
+//  e orienta quando entrar na operação
+// ══════════════════════════════════════════════
+let entryTimer = null;
+
+function startEntryIndicator(isBuy) {
+  clearInterval(entryTimer);
+  document.getElementById('entry-box').classList.add('show');
+
+  // Janela segura de entrada em segundos
+  const safeWindow = currentTF === '1min' ? 15 : 30;
+  const totalSecs  = currentTF === '1min' ? 60 : 300;
+
+  entryTimer = setInterval(() => {
+    const now     = new Date();
+    const elapsed = (now.getSeconds() + now.getMilliseconds()/1000) % totalSecs;
+    // Para M5: segundos dentro do bloco de 5 minutos
+    const elapsedM5 = currentTF === '5min'
+      ? (now.getMinutes() % 5) * 60 + now.getSeconds()
+      : now.getSeconds();
+
+    const secsInVela  = currentTF === '1min' ? elapsedM5 : elapsedM5;
+    const secsLeft    = totalSecs - secsInVela;
+    const pctConsumed = (secsInVela / totalSecs) * 100;
+
+    const box      = document.getElementById('entry-box');
+    const iconEl   = document.getElementById('entry-icon');
+    const textEl   = document.getElementById('entry-text');
+    const momentEl = document.getElementById('entry-moment');
+    const velaEl   = document.getElementById('entry-velatime');
+    const actionEl = document.getElementById('entry-action');
+    const pctEl    = document.getElementById('entry-vela-pct');
+    const fillEl   = document.getElementById('entry-vela-fill');
+
+    fillEl.style.width = Math.min(pctConsumed, 100) + '%';
+    velaEl.textContent = fmt(Math.round(secsLeft));
+    pctEl.textContent  = Math.round(pctConsumed) + '% usada';
+
+    if (secsInVela <= safeWindow) {
+      // ✅ ZONA VERDE — Janela ideal de entrada
+      box.className = 'entry-box show go';
+      iconEl.textContent = '🟢';
+      textEl.className   = 'entry-text go';
+      textEl.textContent = 'ENTRE AGORA!';
+      momentEl.textContent = 'IDEAL';
+      momentEl.className   = 'entry-cell-val green';
+      actionEl.textContent = isBuy ? '▲ CALL' : '▼ PUT';
+      actionEl.className   = 'entry-cell-val ' + (isBuy ? 'green' : 'red');
+      fillEl.className     = 'entry-vela-fill safe';
+
+    } else if (secsLeft > safeWindow) {
+      // 🟡 ZONA AMARELA — Vela em andamento, espere a próxima
+      box.className = 'entry-box show wait';
+      iconEl.textContent = '⏳';
+      textEl.className   = 'entry-text wait';
+      textEl.textContent = 'AGUARDE PRÓXIMA';
+      momentEl.textContent = 'ESPERE';
+      momentEl.className   = 'entry-cell-val yellow';
+      actionEl.textContent = fmt(Math.round(secsLeft));
+      actionEl.className   = 'entry-cell-val yellow';
+      fillEl.className     = 'entry-vela-fill warn';
+
+    } else {
+      // 🔴 ZONA VERMELHA — Últimos segundos, entre rápido ou perde
+      box.className = 'entry-box show go';
+      iconEl.textContent = '⚡';
+      textEl.className   = 'entry-text go';
+      textEl.textContent = 'ÚLTIMA CHANCE!';
+      momentEl.textContent = 'AGORA!';
+      momentEl.className   = 'entry-cell-val green';
+      actionEl.textContent = isBuy ? '▲ CALL' : '▼ PUT';
+      actionEl.className   = 'entry-cell-val ' + (isBuy ? 'green' : 'red');
+      fillEl.className     = 'entry-vela-fill danger';
+    }
+  }, 500);
+}
+
+function stopEntryIndicator() {
+  clearInterval(entryTimer);
+  entryTimer = null;
+  const box = document.getElementById('entry-box');
+  box.classList.remove('show');
+  box.className = 'entry-box';
+}
+
+// ══════════════════════════════════════════════
+//  CONTADOR REGRESSIVO DA VELA ATUAL
+//  Mostra em tempo real quantos segundos faltam
+//  para a vela atual fechar, sincronizado com
+//  o relógio do sistema (igual à plataforma)
+// ══════════════════════════════════════════════
+let velaTimer = null;
+
+function startVelaCountdown() {
+  clearInterval(velaTimer);
+
+  velaTimer = setInterval(() => {
+    const now      = new Date();
+    const s        = now.getSeconds();
+    const ms       = now.getMilliseconds();
+    const totalSec = currentTF === '1min' ? 60 : 300;
+
+    // Segundos já consumidos nesta vela
+    let elapsed;
+    if (currentTF === '1min') {
+      elapsed = s + ms / 1000;
+    } else {
+      // M5: quantos segundos dentro do bloco de 5 minutos
+      elapsed = (now.getMinutes() % 5) * 60 + s + ms / 1000;
     }
 
-    // ── ENGOLFO ───────────────────────────────────
-    // C1 engole o corpo de C2
-    if (isBullish1 && c1.close > c2.high && c1.open < c2.low) {
-      confluences++;
-      pattern = { name: 'Engolfo de Alta', desc: 'Engolfo completo' };
-      isBuy = true;
-    }
-    if (isBearish1 && c1.close < c2.low && c1.open > c2.high) {
-      confluences++;
-      pattern = { name: 'Engolfo de Baixa', desc: 'Engolfo completo' };
-      isBuy = false;
-    }
+    const remaining = totalSec - elapsed;
+    const pctUsed   = (elapsed / totalSec) * 100;
 
-    // ── PIN BAR ───────────────────────────────────
-    // Pavio longo (> 60% do total) e corpo pequeno (< 30%)
-    const upperWick1 = c1.high - Math.max(c1.open, c1.close);
-    const lowerWick1 = Math.min(c1.open, c1.close) - c1.low;
-    if (lowerWick1 > totalSize1 * 0.60 && bodyRatio1 < 0.30) {
-      confluences++;
-      pattern = { name: 'Pin Bar', desc: 'Rejeição de nível' };
-      isBuy = true;
-    }
-    if (upperWick1 > totalSize1 * 0.60 && bodyRatio1 < 0.30) {
-      confluences++;
-      pattern = { name: 'Pin Bar', desc: 'Rejeição de topo' };
-      isBuy = false;
+    // Elementos
+    const fillEl  = document.getElementById('vela-fill');
+    const secsEl  = document.getElementById('vela-secs');
+    const nameEl  = document.getElementById('vela-name');
+
+    // Tempo restante formatado
+    const remInt = Math.ceil(remaining);
+    secsEl.textContent = remInt < 60 ? remInt + 's' : Math.floor(remInt/60) + ':' + String(remInt%60).padStart(2,'0');
+    nameEl.textContent = currentTF === '1min' ? 'M1' : 'M5';
+
+    // Barra mostra quanto da vela já passou (inverte: verde=muito tempo, vermelho=pouco)
+    fillEl.style.width = Math.min(pctUsed, 100) + '%';
+
+    // Cores por tempo restante
+    let cls;
+    if (remaining > (currentTF === '1min' ? 20 : 90)) {
+      cls = 'safe';   // verde — bastante tempo
+    } else if (remaining > (currentTF === '1min' ? 8 : 30)) {
+      cls = 'warn';   // amarelo — atenção
+    } else {
+      cls = 'danger'; // vermelho — últimos segundos
     }
 
-    // ── TENDÊNCIA (confluência extra) ─────────────
-    // 3 velas na mesma direção = tendência definida
-    const trend = getTrend(candles);
-    if (trend === 'up' && isBuy === true)   confluences++;
-    if (trend === 'down' && isBuy === false) confluences++;
+    fillEl.className  = 'vela-fill '  + cls;
+    secsEl.className  = 'vela-secs '  + cls;
+    nameEl.className  = 'vela-name '  + cls;
 
-    // ── RETRAÇÃO NA REGIÃO ────────────────────────
-    // C1 retrai para região de C2/C3 após movimento
-    const retracao = checkRetracao(candles);
-    if (retracao && retracao === (isBuy ? 'buy' : 'sell')) confluences++;
+  }, 200); // atualiza 5x por segundo para suavidade
+}
 
-    // Só dispara sinal se tiver pelo menos 2 confluências
-    if (confluences < 2 || pattern === null || isBuy === null) return;
+function stopVelaCountdown() {
+  clearInterval(velaTimer);
+  velaTimer = null;
+}
 
-    // Calcula chance baseada nas confluências
-    chance = Math.min(50 + confluences * 10 + Math.floor(bodyRatio1 * 20), 92);
+// ── RESULTADO ──────────────────────────────────
+function checkResult(c0) {
+  if (lastSignalDir===null) return;
+  signalCandleDT = null; clearInterval(countdownTimer); countdownActive = false; waitingResult = false;
+  const ent = parseFloat(lastEntry);
+  const tie = c0.close === ent;
+  const won = !tie && (lastSignalDir ? c0.close>ent : c0.close<ent);
+  signals++; if(won) hits++; else if(!tie) misses++;
+  document.getElementById('stat-signals').textContent = signals;
+  document.getElementById('stat-hits').textContent    = hits;
+  document.getElementById('stat-miss').textContent    = misses;
+  document.getElementById('stat-rate').textContent    = (hits+misses>0 ? Math.round(hits/(hits+misses)*100)+'%' : '—');
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  historyData.unshift({
+    dir:lastSignalDir?'CALL':'PUT', pair:currentPair, time,
+    tf:currentTF==='1min'?'M1':'M5', entry:lastEntry,
+    patterns:lastPatterns.slice(0,3).join(' · '),
+    chance:lastChance, result:tie?'EMPATE':(won?'WIN':'LOSS')
+  });
+  if (historyData.length>30) historyData.pop();
+  renderHistory();
 
-    fireSignal(isBuy, pattern, chance, c1.close.toFixed(5));
+  // Após gravar resultado, verifica se há sinal pendente na fila
+  if (pendingSignal) {
+    const p = pendingSignal; pendingSignal = null;
+    // Pequeno delay para mostrar o resultado antes do próximo sinal
+    setTimeout(()=>{
+      resetSignalDisplay();
+      setTimeout(()=> _mostrarSinal(p.isBuy, p.tags, p.chance, p.entry, p.conf), 800);
+    }, 2000);
+  } else {
+    setTimeout(resetSignalDisplay, 3000);
   }
+}
 
-  function getTrend(candles) {
-    const closes = candles.slice(1, 6).map(c => c.close);
-    let up = 0, down = 0;
-    for (let i = 0; i < closes.length - 1; i++) {
-      if (closes[i] > closes[i+1]) up++;
-      else down++;
-    }
-    if (up >= 3) return 'up';
-    if (down >= 3) return 'down';
-    return 'lateral';
-  }
+// ── API ────────────────────────────────────────
+function msToNextCandle() {
+  const step = currentTF==='1min' ? 60000 : 300000;
+  return step - (Date.now() % step) + 3000; // 3s após a abertura da próxima vela
+}
+function scheduleFetch() {
+  clearTimeout(fetchTimer);
+  fetchTimer = setTimeout(async () => { await fetchAndAnalyze(); scheduleFetch(); }, msToNextCandle());
+}
 
-  function checkRetracao(candles) {
-    const c0 = candles[0]; // vela atual
-    const c1 = candles[1]; // última fechada
-    const c2 = candles[2];
-    // Preço atual retornou à região da vela anterior
-    if (c0.low <= c1.high && c0.close > c1.open) return 'buy';
-    if (c0.high >= c1.low && c0.close < c1.open) return 'sell';
-    return null;
-  }
+async function fetchAndAnalyze(warmup) {
+  checkNews();
+  try {
+    const url = `https://api.twelvedata.com/time_series?symbol=${currentSymbol}&interval=${currentTF}&outputsize=60&apikey=${API_KEY}`;
+    const data = await (await fetch(url)).json();
+    if (!data.values||data.values.length<16) return;
 
-  // ── DISPARA SINAL ─────────────────────────────────
-  function fireSignal(isBuy, pat, chance, entry) {
-    // Evita sinais duplicados em menos de 60s
-    const now = Date.now();
-    if (now - lastSignalTime < 60000) return;
-    lastSignalTime = now;
+    const cs = data.values.map(v=>({open:+v.open,high:+v.high,low:+v.low,close:+v.close,dt:v.datetime}));
 
-    lastSignalDir = isBuy;
-    lastEntry = entry;
-    lastPattern = pat.name;
-    waitingResult = false;
+    updateADXPanel(calcADX(cs));
+    if (warmup) { lastTopDT = cs[0].dt; return; } // carga inicial: só ADX, sem sinal no meio da vela
 
-    document.getElementById('signal-box').className = 'signal-box ' + (isBuy ? 'buy' : 'sell');
+    // a vela nova ainda não chegou na API → tenta de novo em 2,5s (até 4x)
+    if (cs[0].dt === lastTopDT && staleRetries < 4) { staleRetries++; setTimeout(fetchAndAnalyze, 2500); return; }
+    staleRetries = 0; lastTopDT = cs[0].dt;
 
-    const dir = document.getElementById('signal-direction');
-    dir.className = 'signal-direction ' + (isBuy ? 'buy' : 'sell');
-    dir.textContent = isBuy ? '▲ COMPRA' : '▼ VENDA';
-
-    document.getElementById('status-dot').className = 'status-dot active';
-    document.getElementById('status-text').textContent = 'SINAL DETECTADO';
-
-    const metaDir = document.getElementById('meta-dir');
-    metaDir.textContent = isBuy ? 'CALL' : 'PUT';
-    metaDir.className = 'meta-value ' + (isBuy ? 'buy' : 'sell');
-
-    document.getElementById('meta-entry').textContent = entry;
-    document.getElementById('pattern-tag').textContent = pat.name;
-    document.getElementById('pattern-desc').textContent = pat.desc;
-
-    setChance(chance, true);
-
-    // Countdown 60s
-    let secs = 60;
-    document.getElementById('countdown').textContent = secs + 's';
-    clearInterval(countdownTimer);
-    countdownTimer = setInterval(() => {
-      secs--;
-      document.getElementById('countdown').textContent = secs + 's';
-      if (secs <= 0) {
-        clearInterval(countdownTimer);
-        waitingResult = true;
-        document.getElementById('status-text').textContent = 'VERIFICANDO...';
-      }
-    }, 1000);
-  }
-
-  // ── VERIFICA RESULTADO ────────────────────────────
-  function checkResult(currentCandle) {
-    if (!waitingResult || lastSignalDir === null) return;
-    waitingResult = false;
-
-    const entryPrice = parseFloat(lastEntry);
-    const closePrice = currentCandle.close;
-    const won = lastSignalDir ? (closePrice > entryPrice) : (closePrice < entryPrice);
-
-    signals++;
-    if (won) hits++;
-
-    document.getElementById('stat-signals').textContent = signals;
-    document.getElementById('stat-hits').textContent = hits;
-    document.getElementById('stat-rate').textContent = Math.round((hits / signals) * 100) + '%';
-
-    const now = new Date();
-    const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-    historyData.unshift({
-      dir: lastSignalDir ? 'CALL' : 'PUT',
-      pair: currentPair,
-      time,
-      entry: lastEntry,
-      pattern: lastPattern,
-      result: won ? 'WIN' : 'LOSS'
-    });
-    if (historyData.length > 10) historyData.pop();
-    renderHistory();
-
-    // Reset visual após 3s
-    setTimeout(() => {
-      document.getElementById('signal-box').className = 'signal-box';
-      document.getElementById('signal-direction').className = 'signal-direction waiting';
-      document.getElementById('signal-direction').textContent = 'AGUARDANDO SINAL';
-      document.getElementById('status-dot').className = 'status-dot';
-      document.getElementById('status-text').textContent = 'ANALISANDO';
-      document.getElementById('countdown').textContent = '';
-      document.getElementById('meta-dir').textContent = '—';
-      document.getElementById('meta-dir').className = 'meta-value';
-      document.getElementById('meta-entry').textContent = '—';
-      document.getElementById('pattern-tag').textContent = 'Buscando padrão...';
-      document.getElementById('pattern-desc').textContent = '';
-      setChance(0, false);
-      lastSignalDir = null;
-    }, 3000);
-  }
-
-  function setChance(pct, active) {
-    const pctEl    = document.getElementById('chance-pct');
-    const fillEl   = document.getElementById('chance-fill');
-    const ratingEl = document.getElementById('chance-rating');
-
-    if (!active || pct === 0) {
-      pctEl.textContent = '—'; pctEl.className = 'chance-pct none';
-      fillEl.style.width = '0%'; fillEl.className = 'chance-fill none';
-      ratingEl.textContent = 'Aguardando análise...';
-      ratingEl.style.color = 'var(--dim)';
+    // resultado: compara o fechamento da vela do sinal com o preço de entrada
+    if (lastSignalDir!==null && signalCandleDT) {
+      const i = cs.findIndex(c=>c.dt===signalCandleDT);
+      if (i>=1) checkResult(cs[i]);
+      else if (i===-1) { signalCandleDT = null; lastSignalDir = null; resetSignalDisplay(); }
       return;
     }
+    analyzeCandles(cs);
+  } catch(e) { console.error(e); }
+}
 
-    pctEl.textContent = pct + '%';
-    fillEl.style.width = pct + '%';
+// ── VISUAIS ────────────────────────────────────
+function updateConf(conf) {
+  const nomes = ['Vela de Comando','Vela de Força','Taxa Dividida','Lote Contrário',
+                 'Pavio Demanda','Fim de Taxa','Nova Alta/Baixa','Retração Pullback',
+                 'Defesa de Região','Transferência Preço','Desistalação'];
+  document.getElementById('conf-list').innerHTML = nomes.map((n,i)=>`
+    <div class="conf-item">
+      <div class="conf-dot ${conf[i]?'on':'off'}"></div>
+      <div class="conf-label ${conf[i]?'on':''}">${n}</div>
+    </div>`).join('');
+}
 
-    if (pct >= 75) {
-      pctEl.className = 'chance-pct high'; fillEl.className = 'chance-fill high';
-      ratingEl.textContent = '✦ SINAL FORTE — Alta probabilidade de acerto';
-      ratingEl.style.color = 'var(--green)';
-    } else if (pct >= 60) {
-      pctEl.className = 'chance-pct medium'; fillEl.className = 'chance-fill medium';
-      ratingEl.textContent = '◆ SINAL MODERADO — Atenção ao gerenciamento de risco';
-      ratingEl.style.color = 'var(--yellow)';
-    } else {
-      pctEl.className = 'chance-pct low'; fillEl.className = 'chance-fill low';
-      ratingEl.textContent = '▼ SINAL FRACO — Considere aguardar próxima oportunidade';
-      ratingEl.style.color = 'var(--red)';
-    }
+function setChance(pct, active) {
+  const pEl=document.getElementById('chance-pct');
+  const fEl=document.getElementById('chance-fill');
+  const rEl=document.getElementById('chance-rating');
+  if (!active||pct===0) {
+    pEl.textContent='—'; pEl.className='chance-pct none';
+    fEl.style.width='0%'; fEl.className='chance-fill none';
+    rEl.textContent='Aguardando análise...'; rEl.style.color='var(--dim)'; return;
   }
+  pEl.textContent=pct+'%'; fEl.style.width=pct+'%';
+  if (pct>=75) {
+    pEl.className='chance-pct high'; fEl.className='chance-fill high';
+    rEl.textContent='✦ SINAL FORTE — Alta probabilidade de acerto'; rEl.style.color='var(--green)';
+  } else if (pct>=62) {
+    pEl.className='chance-pct medium'; fEl.className='chance-fill medium';
+    rEl.textContent='◆ SINAL MODERADO — Valide no gráfico antes de operar'; rEl.style.color='var(--yellow)';
+  } else {
+    pEl.className='chance-pct low'; fEl.className='chance-fill low';
+    rEl.textContent='▼ SINAL FRACO — Aguarde próxima oportunidade'; rEl.style.color='var(--red)';
+  }
+}
 
-  function renderHistory() {
-    document.getElementById('history-list').innerHTML = historyData.map(h => `
-      <div class="history-item">
-        <div class="hist-dir ${h.dir === 'CALL' ? 'call' : 'put'}">${h.dir}</div>
-        <div class="hist-info">
-          <div class="hist-pair">${h.pair}</div>
-          <div class="hist-detail">${h.time} · ${h.entry} · ${h.pattern}</div>
-        </div>
-        <div class="hist-result ${h.result === 'WIN' ? 'win' : 'loss'}">${h.result} ${h.result === 'WIN' ? '✓' : '✗'}</div>
+function renderHistory() {
+  document.getElementById('history-list').innerHTML = historyData.map(h=>`
+    <div class="history-item">
+      <div class="hist-dir ${h.dir==='CALL'?'call':'put'}">${h.dir}</div>
+      <div class="hist-info">
+        <div class="hist-pair">${h.pair} <span style="color:var(--dim);font-size:8px">${h.tf}</span></div>
+        <div class="hist-detail">${h.time} · ${h.entry} · ${h.patterns}</div>
       </div>
-    `).join('');
-  }
+      <div class="hist-right">
+        <div class="hist-result ${h.result==='WIN'?'win':'loss'}">${h.result} ${h.result==='WIN'?'✓':h.result==='EMPATE'?'=':'✗'}</div>
+        <div class="hist-pct">${h.chance}%</div>
+      </div>
+    </div>`).join('');
+}
 
-  // ── INIT ──────────────────────────────────────────
-  loadChart('FX:EURUSD');
-  resetDisplay();
+function resetSignalDisplay() {
+  if (newsBlocked||adxBlocked) return;
+  countdownActive = false;
+  stopEntryIndicator();
+  document.getElementById('signal-box').className = 'signal-box';
+  const dir = document.getElementById('signal-direction');
+  dir.className='signal-direction waiting'; dir.textContent='AGUARDANDO SINAL';
+  document.getElementById('status-dot').className   = 'status-dot';
+  document.getElementById('status-text').textContent = 'ANALISANDO';
+  document.getElementById('countdown').textContent   = '';
+  document.getElementById('meta-dir').textContent    = '—';
+  document.getElementById('meta-dir').className      = 'meta-value';
+  document.getElementById('meta-entry').textContent  = '—';
+  document.getElementById('signal-patterns').innerHTML = '<span class="pattern-tag">Buscando padrão...</span>';
+  setChance(0, false);
+  updateConf(Array(11).fill(false));
+  lastSignalDir = null;
+}
+
+function resetDisplay() {
+  clearInterval(countdownTimer); clearTimeout(fetchTimer);
+  TOLERANCE = currentPair.includes('JPY') ? 0.002 : 0.00002;
+  lastTopDT = null; staleRetries = 0; signalCandleDT = null;
+  waitingResult=false; lastSignalDir=null;
+  countdownActive=false; pendingSignal=null;
+  stopEntryIndicator();
+  startVelaCountdown();
+  resetSignalDisplay();
+  fetchAndAnalyze(true);
+  scheduleFetch();
+}
+
+// ── INIT ───────────────────────────────────────
+loadChart('FX:EURUSD');
+resetDisplay();
 </script>
 </body>
 </html>
