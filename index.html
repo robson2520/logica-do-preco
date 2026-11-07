@@ -409,7 +409,7 @@
 const API_KEY   = '0c36cfcd57ab469aa60d338370cd354f';
 let TOLERANCE = 0.00002; // 0,2 pip — recalculado por par em resetDisplay()
 let signalCandleDT = null, candleDTForSignal = null; // vela do sinal (para medir o resultado na expiração)
-let lastTopDT = null, staleRetries = 0;              // controle de dados atrasados
+let lastTopDT = null, staleRetries = 0, marketClosed = false;              // controle de dados atrasados
 
 let currentPair = 'EUR/USD', currentSymbol = 'EUR/USD';
 let currentTF = '1min', currentTFChart = '1';
@@ -472,7 +472,7 @@ function checkNews() {
   if (blocked) {
     banner.classList.add('show');
     document.getElementById('news-text').textContent = `⚠ ${label} — Sinais suspensos por segurança`;
-  } else {
+  } else if (!marketClosed) {
     banner.classList.remove('show');
   }
 }
@@ -1019,7 +1019,7 @@ function checkResult(c0) {
 
 // ── API ────────────────────────────────────────
 function msToNextCandle() {
-  const step = currentTF==='1min' ? 60000 : 300000;
+  const step = marketClosed ? 300000 : (currentTF==='1min' ? 60000 : 300000); // fechado: confere a cada 5 min
   return step - (Date.now() % step) + 3000; // 3s após a abertura da próxima vela
 }
 function scheduleFetch() {
@@ -1039,9 +1039,18 @@ async function fetchAndAnalyze(warmup) {
     updateADXPanel(calcADX(cs));
     if (warmup) { lastTopDT = cs[0].dt; return; } // carga inicial: só ADX, sem sinal no meio da vela
 
-    // a vela nova ainda não chegou na API → tenta de novo em 2,5s (até 4x)
-    if (cs[0].dt === lastTopDT && staleRetries < 4) { staleRetries++; setTimeout(fetchAndAnalyze, 2500); return; }
+    if (cs[0].dt === lastTopDT) {
+      // sem vela nova: tenta de novo em 2,5s (até 4x); depois disso considera mercado fechado
+      if (!marketClosed && staleRetries < 4) { staleRetries++; setTimeout(fetchAndAnalyze, 2500); return; }
+      staleRetries = 0; marketClosed = true;
+      document.getElementById('news-banner').classList.add('show');
+      document.getElementById('news-text').textContent = '🔒 Mercado fechado ou sem dados novos — sinais suspensos';
+      return;
+    }
     staleRetries = 0; lastTopDT = cs[0].dt;
+    if (marketClosed) { // mercado reabriu: pula este ciclo e volta ao normal na próxima vela
+      marketClosed = false; document.getElementById('news-banner').classList.remove('show'); return;
+    }
 
     // resultado: compara o fechamento da vela do sinal com o preço de entrada
     if (lastSignalDir!==null && signalCandleDT) {
@@ -1125,7 +1134,7 @@ function resetSignalDisplay() {
 function resetDisplay() {
   clearInterval(countdownTimer); clearTimeout(fetchTimer);
   TOLERANCE = currentPair.includes('JPY') ? 0.002 : 0.00002;
-  lastTopDT = null; staleRetries = 0; signalCandleDT = null;
+  lastTopDT = null; staleRetries = 0; signalCandleDT = null; marketClosed = false;
   waitingResult=false; lastSignalDir=null;
   countdownActive=false; pendingSignal=null;
   stopEntryIndicator();
