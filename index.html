@@ -390,7 +390,13 @@
 </div>
 
 <div class="history-section">
-  <div class="section-title">HISTÓRICO — 30 ÚLTIMOS SINAIS</div>
+  <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+    <span>HISTÓRICO — 30 ÚLTIMOS (TUDO FICA SALVO)</span>
+    <span>
+      <button onclick="exportCSV()" style="background:var(--bg3);border:1px solid var(--border);color:var(--blue);font-size:8px;letter-spacing:1px;padding:4px 8px;border-radius:4px;cursor:pointer;font-family:inherit;">EXPORTAR</button>
+      <button onclick="clearHistory()" style="background:var(--bg3);border:1px solid var(--border);color:var(--dim);font-size:8px;letter-spacing:1px;padding:4px 8px;border-radius:4px;cursor:pointer;font-family:inherit;">LIMPAR</button>
+    </span>
+  </div>
   <div id="history-list"></div>
 </div>
 
@@ -402,7 +408,7 @@
 
 <script>
 // ══════════════════════════════════════════════
-//  LÓGICA DO PREÇO — ENGINE v4.1
+//  LÓGICA DO PREÇO — ENGINE v4.2
 //  11 Confluências · ADX integrado · M1/M5
 //  10 ativos · Filtro notícias · Histórico 30
 // ══════════════════════════════════════════════
@@ -415,6 +421,8 @@ let currentPair = 'EUR/USD', currentSymbol = 'EUR/USD';
 let currentTF = '1min', currentTFChart = '1';
 let signals = 0, hits = 0, misses = 0;
 let historyData = [], countdownTimer = null, fetchTimer = null;
+let allHistory = [], sigClock = null, sigCtx = null, ctxForSignal = null, lastADX = null;
+const MIN_BODY_PIPS = 0.3, HIST_KEY = 'lp_hist_v1'; // corpo menor que isso = vela NEUTRA (não conta)
 let lastSignalTime = 0, waitingResult = false;
 let lastSignalDir = null, lastEntry = null, lastPatterns = [], lastChance = 0;
 let newsBlocked = false, adxBlocked = false;
@@ -766,6 +774,13 @@ function analyzeCandles(cs) {
                  'Defesa de Região','Transferência Preço','Desistalação'];
   const tags  = conf.map((on,i) => on ? nomes[i] : null).filter(Boolean);
 
+  const pipSz = currentPair.includes('JPY') ? 0.01 : 0.0001;
+  const e20 = emaSeries(cs.slice(1).map(c=>c.close).reverse(), 20), eN = e20[e20.length-1];
+  ctxForSignal = {
+    adx: lastADX?lastADX.adx:'', diP: lastADX?lastADX.diPlus:'', diM: lastADX?lastADX.diMinus:'', tend,
+    ema20: eN.toFixed(currentPair.includes('JPY')?3:5), emaPos: cs[1].close>=eN?'acima':'abaixo',
+    emaSlope: +((eN-e20[e20.length-6])/pipSz).toFixed(2), gap: +((cs[0].open-cs[1].close)/pipSz).toFixed(2)
+  };
   candleDTForSignal = cs[0].dt;
   fireSignal(isBuy, tags, chance, cs[0].close.toFixed(currentPair.includes('JPY')?3:5), conf);
 }
@@ -795,7 +810,7 @@ function _mostrarSinal(isBuy, tags, chance, entry, conf) {
   lastSignalDir=isBuy; lastEntry=entry;
   lastPatterns=tags; lastChance=chance; waitingResult=false;
   countdownActive = true; pendingSignal = null;
-  signalCandleDT = candleDTForSignal;
+  signalCandleDT = candleDTForSignal; sigClock = new Date(); sigCtx = ctxForSignal;
 
   document.getElementById('signal-box').className = 'signal-box '+(isBuy?'buy':'sell');
   const dir = document.getElementById('signal-direction');
@@ -984,24 +999,28 @@ function stopVelaCountdown() {
 // ── RESULTADO ──────────────────────────────────
 function checkResult(c0) {
   if (lastSignalDir===null) return;
-  signalCandleDT = null; clearInterval(countdownTimer); countdownActive = false; waitingResult = false;
+  const sigDT = signalCandleDT; signalCandleDT = null; clearInterval(countdownTimer); countdownActive = false; waitingResult = false;
+  const dec = currentPair.includes('JPY') ? 3 : 5, pip = currentPair.includes('JPY') ? 0.01 : 0.0001;
+  const body = c0.close - c0.open, bodyPips = Math.abs(body)/pip;
+  const neutro = bodyPips < MIN_BODY_PIPS;
+  const won = !neutro && (lastSignalDir ? body>0 : body<0);
   const ent = parseFloat(lastEntry);
-  const tie = c0.close === ent;
-  const won = !tie && (lastSignalDir ? c0.close>ent : c0.close<ent);
-  signals++; if(won) hits++; else if(!tie) misses++;
+  const vsEntry = c0.close===ent ? 'EMPATE' : ((lastSignalDir ? c0.close>ent : c0.close<ent) ? 'WIN' : 'LOSS');
+  signals++; if(won) hits++; else if(!neutro) misses++;
   document.getElementById('stat-signals').textContent = signals;
   document.getElementById('stat-hits').textContent    = hits;
   document.getElementById('stat-miss').textContent    = misses;
   document.getElementById('stat-rate').textContent    = (hits+misses>0 ? Math.round(hits/(hits+misses)*100)+'%' : '—');
-  const now = new Date();
-  const time = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
-  historyData.unshift({
-    dir:lastSignalDir?'CALL':'PUT', pair:currentPair, time,
-    tf:currentTF==='1min'?'M1':'M5', entry:lastEntry,
-    patterns:lastPatterns.slice(0,3).join(' · '),
-    chance:lastChance, result:tie?'EMPATE':(won?'WIN':'LOSS')
-  });
-  if (historyData.length>30) historyData.pop();
+  const hhmm = d => d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+  allHistory.unshift(Object.assign({
+    dir:lastSignalDir?'CALL':'PUT', pair:currentPair, tf:currentTF==='1min'?'M1':'M5',
+    time:hhmm(sigClock||new Date()), resHora:hhmm(new Date()), dt:sigDT,
+    open:c0.open.toFixed(dec), entry:lastEntry, closeTxt:c0.close.toFixed(dec), bodyPips:+bodyPips.toFixed(2),
+    result:neutro?'NEUTRO':(won?'WIN':'LOSS'), vsEntry,
+    patterns:lastPatterns.slice(0,3).join(' · '), allPatterns:lastPatterns.join(' + '), chance:lastChance
+  }, sigCtx||{}));
+  if (allHistory.length>5000) allHistory.pop();
+  saveHistory(); historyData = allHistory.slice(0,30);
   renderHistory();
 
   // Após gravar resultado, verifica se há sinal pendente na fila
@@ -1036,7 +1055,7 @@ async function fetchAndAnalyze(warmup) {
 
     const cs = data.values.map(v=>({open:+v.open,high:+v.high,low:+v.low,close:+v.close,dt:v.datetime}));
 
-    updateADXPanel(calcADX(cs));
+    lastADX = calcADX(cs); updateADXPanel(lastADX);
     if (warmup) { lastTopDT = cs[0].dt; return; } // carga inicial: só ADX, sem sinal no meio da vela
 
     if (cs[0].dt === lastTopDT) {
@@ -1103,13 +1122,51 @@ function renderHistory() {
       <div class="hist-dir ${h.dir==='CALL'?'call':'put'}">${h.dir}</div>
       <div class="hist-info">
         <div class="hist-pair">${h.pair} <span style="color:var(--dim);font-size:8px">${h.tf}</span></div>
-        <div class="hist-detail">${h.time} · ${h.entry} · ${h.patterns}</div>
+        <div class="hist-detail">${h.time} · ${h.entry}→${h.closeTxt||'—'} · ${h.patterns}</div>
       </div>
       <div class="hist-right">
-        <div class="hist-result ${h.result==='WIN'?'win':'loss'}">${h.result} ${h.result==='WIN'?'✓':h.result==='EMPATE'?'=':'✗'}</div>
+        <div class="hist-result ${h.result==='WIN'?'win':h.result==='NEUTRO'?'':'loss'}" ${h.result==='NEUTRO'?'style="color:var(--dim)"':''}>${h.result} ${h.result==='WIN'?'✓':h.result==='NEUTRO'?'≈':'✗'}</div>
         <div class="hist-pct">${h.chance}%</div>
       </div>
     </div>`).join('');
+}
+
+function emaSeries(arr, n) {
+  const k = 2/(n+1), out = [arr[0]];
+  for (let i=1;i<arr.length;i++) out.push(arr[i]*k + out[i-1]*(1-k));
+  return out;
+}
+function saveHistory() { try { localStorage.setItem(HIST_KEY, JSON.stringify(allHistory)); } catch(e) {} }
+function updateStats() {
+  document.getElementById('stat-signals').textContent = signals;
+  document.getElementById('stat-hits').textContent    = hits;
+  document.getElementById('stat-miss').textContent    = misses;
+  document.getElementById('stat-rate').textContent    = (hits+misses>0 ? Math.round(hits/(hits+misses)*100)+'%' : '—');
+}
+function loadHistory() {
+  try { const s = localStorage.getItem(HIST_KEY); if (s) allHistory = JSON.parse(s) || []; } catch(e) { allHistory = []; }
+  historyData = allHistory.slice(0,30);
+  signals = allHistory.length;
+  hits    = allHistory.filter(h=>h.result==='WIN').length;
+  misses  = allHistory.filter(h=>h.result==='LOSS').length;
+  updateStats(); renderHistory();
+}
+function clearHistory() {
+  if (!confirm('Apagar todo o histórico salvo? Exporte antes se quiser guardar.')) return;
+  allHistory = []; historyData = []; signals = 0; hits = 0; misses = 0;
+  saveHistory(); updateStats(); renderHistory();
+}
+function exportCSV() {
+  if (!allHistory.length) { alert('Ainda não há sinais para exportar.'); return; }
+  const cols = [['hora_sinal','time'],['hora_resultado','resHora'],['vela_api','dt'],['par','pair'],['tf','tf'],['direcao','dir'],
+    ['abertura_vela','open'],['entrada','entry'],['fechamento_vela','closeTxt'],['corpo_pips','bodyPips'],['resultado','result'],
+    ['resultado_vs_entrada','vsEntry'],['padroes','allPatterns'],['chance_app','chance'],['adx','adx'],['di_mais','diP'],['di_menos','diM'],
+    ['tendencia','tend'],['ema20','ema20'],['preco_vs_ema20','emaPos'],['inclinacao_ema_pips','emaSlope'],['gap_pips','gap']];
+  const esc = v => { v = (v===undefined||v===null) ? '' : String(v); return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+  const lines = [cols.map(c=>c[0]).join(';')].concat(allHistory.slice().reverse().map(h=>cols.map(c=>esc(h[c[1]])).join(';')));
+  const blob = new Blob(['\ufeff'+lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'sinais_logica_do_preco.csv'; document.body.appendChild(a); a.click(); a.remove();
 }
 
 function resetSignalDisplay() {
@@ -1145,6 +1202,7 @@ function resetDisplay() {
 }
 
 // ── INIT ───────────────────────────────────────
+loadHistory();
 loadChart('FX:EURUSD');
 resetDisplay();
 </script>
