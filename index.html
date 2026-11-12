@@ -206,6 +206,21 @@
   .nav-item.active{opacity:1;color:var(--green);}
   .nav-icon{font-size:17px;}
   .nav-label{font-size:7px;letter-spacing:2px;}
+
+  /* v4.3 — tela mais curta */
+  .adx-box{display:flex;align-items:center;gap:12px;padding:7px 13px;margin:8px 12px 6px;}
+  .adx-header{margin:0;}
+  .adx-title,.adx-di-row,.adx-track,.adx-zones{display:none;}
+  .adx-num{font-size:18px;}
+  .adx-status{border-top:none;padding:0;text-align:left;flex:1;font-size:9px;}
+  .chance-box{padding:7px 13px;margin-bottom:6px;}
+  .chance-header{margin-bottom:4px;}
+  .chance-pct{font-size:16px;}
+  .chance-track{height:6px;margin-bottom:4px;}
+  .chance-ticks{display:none;}
+  .chance-rating{padding-top:3px;}
+  .entry-box,.entry-box.show{display:none !important;}
+  .asset-btn.blocked{opacity:.4;text-decoration:line-through;}
 </style>
 </head>
 <body>
@@ -244,6 +259,21 @@
       <button class="asset-btn noite" onclick="changeAsset('AUD/JPY','FX:AUDJPY',this)">AUD/JPY</button>
       <button class="asset-btn noite" onclick="changeAsset('EUR/JPY','FX:EURJPY',this)">EUR/JPY</button>
       <button class="asset-btn noite" onclick="changeAsset('EUR/GBP','FX:EURGBP',this)">EUR/GBP</button>
+    </div>
+  </div>
+  <div>
+    <div class="asset-section-label">➕ OUTROS (vários livres nos bloqueios)</div>
+    <div class="asset-row" style="margin-top:4px">
+      <button class="asset-btn" onclick="changeAsset('AUD/CAD','FX:AUDCAD',this)">AUD/CAD</button>
+      <button class="asset-btn" onclick="changeAsset('AUD/NZD','FX:AUDNZD',this)">AUD/NZD</button>
+      <button class="asset-btn" onclick="changeAsset('NZD/JPY','FX:NZDJPY',this)">NZD/JPY</button>
+      <button class="asset-btn" onclick="changeAsset('CAD/JPY','FX:CADJPY',this)">CAD/JPY</button>
+      <button class="asset-btn" onclick="changeAsset('NZD/CAD','FX:NZDCAD',this)">NZD/CAD</button>
+      <button class="asset-btn" onclick="changeAsset('CHF/JPY','FX:CHFJPY',this)">CHF/JPY</button>
+      <button class="asset-btn" onclick="changeAsset('AUD/CHF','FX:AUDCHF',this)">AUD/CHF</button>
+      <button class="asset-btn" onclick="changeAsset('EUR/AUD','FX:EURAUD',this)">EUR/AUD</button>
+      <button class="asset-btn" onclick="changeAsset('GBP/AUD','FX:GBPAUD',this)">GBP/AUD</button>
+      <button class="asset-btn" onclick="changeAsset('NZD/USD','FX:NZDUSD',this)">NZD/USD</button>
     </div>
   </div>
 </div>
@@ -380,7 +410,8 @@
   </div>
 </div>
 
-<div class="aviso">⚠ Valide sempre o sinal no gráfico antes de operar. ADX &lt; 20 = mercado lateral, evite operar. Ativos 🌙 melhores entre 21h–06h BRT.</div>
+<div class="aviso">⚠ Valide sempre o sinal no gráfico antes de operar. ADX &lt; 20 = mercado lateral, evite operar. Ativos 🌙 melhores entre 21h–06h BRT.
+  <button id="news-toggle" onclick="toggleNews()" style="display:block;margin:6px auto 0;background:var(--bg3);border:1px solid var(--border);color:var(--green);font-size:8px;letter-spacing:1px;padding:5px 10px;border-radius:4px;cursor:pointer;font-family:inherit;">📰 Filtro de notícias: LIGADO</button></div>
 
 <div class="stats-row">
   <div class="stat-card"><div class="stat-label">SINAIS</div><div class="stat-value blue" id="stat-signals">0</div></div>
@@ -391,7 +422,7 @@
 
 <div class="history-section">
   <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-    <span>HISTÓRICO — 30 ÚLTIMOS (TUDO FICA SALVO)</span>
+    <span>HISTÓRICO — 100 ÚLTIMOS (TUDO FICA SALVO)</span>
     <span>
       <button onclick="exportCSV()" style="background:var(--bg3);border:1px solid var(--border);color:var(--blue);font-size:8px;letter-spacing:1px;padding:4px 8px;border-radius:4px;cursor:pointer;font-family:inherit;">EXPORTAR</button>
       <button onclick="clearHistory()" style="background:var(--bg3);border:1px solid var(--border);color:var(--dim);font-size:8px;letter-spacing:1px;padding:4px 8px;border-radius:4px;cursor:pointer;font-family:inherit;">LIMPAR</button>
@@ -408,9 +439,9 @@
 
 <script>
 // ══════════════════════════════════════════════
-//  LÓGICA DO PREÇO — ENGINE v4.2
+//  LÓGICA DO PREÇO — ENGINE v4.3
 //  11 Confluências · ADX integrado · M1/M5
-//  10 ativos · Filtro notícias · Histórico 30
+//  20 ativos · Filtro notícias · Histórico 100
 // ══════════════════════════════════════════════
 const API_KEY   = '0c36cfcd57ab469aa60d338370cd354f';
 let TOLERANCE = 0.00002; // 0,2 pip — recalculado por par em resetDisplay()
@@ -425,7 +456,7 @@ let allHistory = [], sigClock = null, sigCtx = null, ctxForSignal = null, lastAD
 const MIN_BODY_PIPS = 0.3, HIST_KEY = 'lp_hist_v1'; // corpo menor que isso = vela NEUTRA (não conta)
 let lastSignalTime = 0, waitingResult = false;
 let lastSignalDir = null, lastEntry = null, lastPatterns = [], lastChance = 0;
-let newsBlocked = false, adxBlocked = false;
+let newsBlocked = false, adxBlocked = false, newsFilterOn = true;
 let pendingSignal = null;   // sinal que chegou durante countdown ativo
 let countdownActive = false; // true enquanto countdown está rodando
 
@@ -460,29 +491,53 @@ function changeAsset(pair, tvSymbol, btn) {
 }
 
 // ── FILTRO DE NOTÍCIAS ─────────────────────────
-function checkNews() {
-  const cur = currentPair.split('/');
-  const now = new Date(), h = now.getHours(), dow = now.getDay();
-  const janelas = [
-    {dow:-1,hI:6, hF:7, cur:['GBP','EUR','CHF'],label:'Abertura Londres'},
-    {dow:-1,hI:10,hF:11,cur:['USD','GBP','EUR'],label:'Abertura NY / Dados EUA'},
-    {dow:5, hI:10,hF:11,cur:['USD'],             label:'NFP — Payroll EUA'},
-    {dow:-1,hI:9, hF:11,cur:['GBP','EUR'],       label:'Decisão Banco Central'},
-  ];
-  let blocked = false, label = '';
-  for (const j of janelas) {
-    if ((j.dow===-1||j.dow===dow) && h>=j.hI && h<=j.hF && j.cur.some(c=>cur.includes(c))) {
-      blocked=true; label=j.label; break;
-    }
+function nowIn(tz) {
+  const p = new Intl.DateTimeFormat('en-GB',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false,weekday:'short'}).formatToParts(new Date());
+  const g = t => p.find(x=>x.type===t).value;
+  return { min:(+g('hour')%24)*60 + (+g('minute')), wd:g('weekday') };
+}
+// horários no fuso do próprio mercado (acompanham o horário de verão sozinhos)
+const NEWS_WINDOWS = [
+  {tz:'Europe/London',    a:475, b:495, cur:['GBP','EUR','CHF'], label:'Abertura de Londres'},    // 07:55–08:15
+  {tz:'America/New_York', a:495, b:525, cur:['USD'],             label:'Dados dos EUA'},          // 08:15–08:45
+  {tz:'America/New_York', a:565, b:585, cur:['USD','GBP','EUR'], label:'Abertura de Nova York'}   // 09:25–09:45
+];
+function newsLabelFor(pair) {
+  if (!newsFilterOn) return '';
+  const cur = pair.split('/');
+  for (const j of NEWS_WINDOWS) {
+    const t = nowIn(j.tz);
+    if (t.wd!=='Sat' && t.wd!=='Sun' && t.min>=j.a && t.min<j.b && j.cur.some(c=>cur.includes(c))) return j.label;
   }
-  newsBlocked = blocked;
+  return '';
+}
+function markBlockedPairs() {
+  document.querySelectorAll('.asset-btn').forEach(b => b.classList.toggle('blocked', !!newsLabelFor(b.textContent.trim())));
+}
+function checkNews() {
+  const label = newsLabelFor(currentPair);
+  newsBlocked = !!label;
   const banner = document.getElementById('news-banner');
-  if (blocked) {
+  if (label) {
     banner.classList.add('show');
     document.getElementById('news-text').textContent = `⚠ ${label} — Sinais suspensos por segurança`;
   } else if (!marketClosed) {
     banner.classList.remove('show');
   }
+  markBlockedPairs();
+}
+function refreshNewsBtn() {
+  const b = document.getElementById('news-toggle');
+  if (b) { b.textContent = '📰 Filtro de notícias: ' + (newsFilterOn?'LIGADO':'DESLIGADO'); b.style.color = newsFilterOn?'var(--green)':'var(--red)'; }
+}
+function toggleNews() {
+  newsFilterOn = !newsFilterOn;
+  try { localStorage.setItem('lp_news', newsFilterOn?'on':'off'); } catch(e) {}
+  refreshNewsBtn(); checkNews();
+}
+function loadNewsPref() {
+  try { newsFilterOn = localStorage.getItem('lp_news') !== 'off'; } catch(e) {}
+  refreshNewsBtn(); checkNews();
 }
 
 // ══════════════════════════════════════════════
@@ -1020,7 +1075,7 @@ function checkResult(c0) {
     patterns:lastPatterns.slice(0,3).join(' · '), allPatterns:lastPatterns.join(' + '), chance:lastChance
   }, sigCtx||{}));
   if (allHistory.length>5000) allHistory.pop();
-  saveHistory(); historyData = allHistory.slice(0,30);
+  saveHistory(); historyData = allHistory.slice(0,100);
   renderHistory();
 
   // Após gravar resultado, verifica se há sinal pendente na fila
@@ -1043,7 +1098,7 @@ function msToNextCandle() {
 }
 function scheduleFetch() {
   clearTimeout(fetchTimer);
-  fetchTimer = setTimeout(async () => { await fetchAndAnalyze(); scheduleFetch(); }, msToNextCandle());
+  fetchTimer = setTimeout(async () => { checkNews(); if (!newsBlocked || lastSignalDir!==null) await fetchAndAnalyze(); scheduleFetch(); }, msToNextCandle());
 }
 
 async function fetchAndAnalyze(warmup) {
@@ -1145,7 +1200,7 @@ function updateStats() {
 }
 function loadHistory() {
   try { const s = localStorage.getItem(HIST_KEY); if (s) allHistory = JSON.parse(s) || []; } catch(e) { allHistory = []; }
-  historyData = allHistory.slice(0,30);
+  historyData = allHistory.slice(0,100);
   signals = allHistory.length;
   hits    = allHistory.filter(h=>h.result==='WIN').length;
   misses  = allHistory.filter(h=>h.result==='LOSS').length;
@@ -1203,6 +1258,7 @@ function resetDisplay() {
 
 // ── INIT ───────────────────────────────────────
 loadHistory();
+loadNewsPref(); setInterval(checkNews, 30000);
 loadChart('FX:EURUSD');
 resetDisplay();
 </script>
