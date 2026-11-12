@@ -463,7 +463,8 @@ let countdownActive = false; // true enquanto countdown está rodando
 const symbolMap = {
   'EUR/USD':'EUR/USD','GBP/USD':'GBP/USD','AUD/USD':'AUD/USD',
   'USD/CAD':'USD/CAD','USD/CHF':'USD/CHF','USD/JPY':'USD/JPY',
-  'GBP/JPY':'GBP/JPY','AUD/JPY':'AUD/JPY','EUR/JPY':'EUR/JPY','EUR/GBP':'EUR/GBP'
+  'GBP/JPY':'GBP/JPY','AUD/JPY':'AUD/JPY','EUR/JPY':'EUR/JPY','EUR/GBP':'EUR/GBP',
+  'AUD/CAD':'AUD/CAD','AUD/NZD':'AUD/NZD','NZD/JPY':'NZD/JPY','CAD/JPY':'CAD/JPY','NZD/CAD':'NZD/CAD','CHF/JPY':'CHF/JPY','AUD/CHF':'AUD/CHF','EUR/AUD':'EUR/AUD','GBP/AUD':'GBP/AUD','NZD/USD':'NZD/USD'
 };
 
 // ── TIMEFRAME ──────────────────────────────────
@@ -483,7 +484,7 @@ function loadChart(symbol) {
 }
 
 function changeAsset(pair, tvSymbol, btn) {
-  currentPair = pair; currentSymbol = symbolMap[pair];
+  currentPair = pair; currentSymbol = symbolMap[pair] || pair;
   document.querySelectorAll('.asset-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   loadChart(tvSymbol);
