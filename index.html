@@ -221,6 +221,11 @@
   .chance-rating{padding-top:3px;}
   .entry-box,.entry-box.show{display:none !important;}
   .asset-btn.blocked{opacity:.4;text-decoration:line-through;}
+  .hist-fb{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;}
+  .fb{background:var(--bg3);border:1px solid var(--border);color:var(--dim);font-size:8px;letter-spacing:.5px;padding:3px 7px;border-radius:4px;cursor:pointer;font-family:inherit;}
+  .fb.on-win{background:rgba(0,230,118,.15);color:var(--green);border-color:var(--green);}
+  .fb.on-loss{background:rgba(255,23,68,.15);color:var(--red);border-color:var(--red);}
+  .fb.on-nao{background:rgba(255,214,0,.12);color:var(--yellow);border-color:var(--yellow);}
 </style>
 </head>
 <body>
@@ -429,6 +434,7 @@
       <button onclick="clearHistory()" style="background:var(--bg3);border:1px solid var(--border);color:var(--dim);font-size:8px;letter-spacing:1px;padding:4px 8px;border-radius:4px;cursor:pointer;font-family:inherit;">LIMPAR</button>
     </span>
   </div>
+  <div id="meu-stats" style="font-size:8px;letter-spacing:1px;padding:0 14px 8px;color:var(--blue);"></div>
   <div id="history-list"></div>
 </div>
 
@@ -440,7 +446,7 @@
 
 <script>
 // ══════════════════════════════════════════════
-//  LÓGICA DO PREÇO — ENGINE v4.4
+//  LÓGICA DO PREÇO — ENGINE v4.5
 //  11 Confluências · ADX integrado · M1/M5
 //  20 ativos · Filtro notícias · Histórico 100
 // ══════════════════════════════════════════════
@@ -614,15 +620,15 @@ function updateADXPanel(result) {
 
   let cls = 'none', statusTxt = '', statusColor = 'var(--dim)';
   if (adx < 20) {
-    cls = 'weak'; statusTxt = '⚠ MERCADO LATERAL — Sem força direcional. Não operar.'; statusColor = 'var(--red)';
-    adxBlocked = true;
-    document.getElementById('adx-blocked').classList.add('show');
+    cls = 'none'; statusTxt = '↔ LATERAL (ZIG-ZAG) — bom para defesas de região'; statusColor = 'var(--blue)';
+    adxBlocked = false;
+    document.getElementById('adx-blocked').classList.remove('show');
   } else if (adx < 25) {
     cls = 'forming'; statusTxt = '◆ TENDÊNCIA FORMANDO — Operar com cautela'; statusColor = 'var(--yellow)';
     adxBlocked = false;
     document.getElementById('adx-blocked').classList.remove('show');
   } else if (adx < 40) {
-    cls = 'strong'; statusTxt = '✦ TENDÊNCIA CONFIRMADA — Bom momento para operar'; statusColor = 'var(--green)';
+    cls = 'strong'; statusTxt = '✦ TENDÊNCIA CONFIRMADA — fluxo forte'; statusColor = 'var(--green)';
     adxBlocked = false;
     document.getElementById('adx-blocked').classList.remove('show');
   } else {
@@ -1195,18 +1201,36 @@ function setChance(pct, active) {
 }
 
 function renderHistory() {
-  document.getElementById('history-list').innerHTML = historyData.map(h=>`
+  document.getElementById('history-list').innerHTML = historyData.map((h,i)=>`
     <div class="history-item">
       <div class="hist-dir ${h.dir==='CALL'?'call':'put'}">${h.dir}</div>
       <div class="hist-info">
         <div class="hist-pair">${h.pair} <span style="color:var(--dim);font-size:8px">${h.tf}</span></div>
         <div class="hist-detail">${h.time} · ${h.entry}→${h.closeTxt||'—'} · ${h.patterns}</div>
+        <div class="hist-fb">
+          <button class="fb ${h.meu==='WIN'?'on-win':''}" onclick="setMeu(${i},'WIN')">✓ ACERTEI</button>
+          <button class="fb ${h.meu==='LOSS'?'on-loss':''}" onclick="setMeu(${i},'LOSS')">✗ ERREI</button>
+          <button class="fb ${h.meu==='NAO'?'on-nao':''}" onclick="setMeu(${i},'NAO')">— NÃO PEGUEI</button>
+        </div>
       </div>
       <div class="hist-right">
         <div class="hist-result ${h.result==='WIN'?'win':h.result==='NEUTRO'?'':'loss'}" ${h.result==='NEUTRO'?'style="color:var(--dim)"':''}>${h.result} ${h.result==='WIN'?'✓':h.result==='NEUTRO'?'≈':'✗'}</div>
         <div class="hist-pct">${h.chance}%</div>
       </div>
     </div>`).join('');
+  updateMeuStats();
+}
+function setMeu(i, v) {
+  const h = allHistory[i]; if (!h) return;
+  h.meu = (h.meu===v) ? '' : v;
+  saveHistory(); historyData = allHistory.slice(0,100); renderHistory();
+}
+function updateMeuStats() {
+  const el = document.getElementById('meu-stats'); if (!el) return;
+  const w = allHistory.filter(h=>h.meu==='WIN').length, l = allHistory.filter(h=>h.meu==='LOSS').length, n = allHistory.filter(h=>h.meu==='NAO').length;
+  el.textContent = (w+l>0)
+    ? `MEU PLACAR NA CORRETORA: ${w} acertos · ${l} erros · ${Math.round(w/(w+l)*100)}% · ${n} sem entrada`
+    : 'MEU PLACAR NA CORRETORA: marque em cada sinal se acertou, errou ou não pegou a entrada';
 }
 
 function emaSeries(arr, n) {
@@ -1239,7 +1263,7 @@ function exportCSV() {
   const cols = [['hora_sinal','time'],['hora_resultado','resHora'],['vela_api','dt'],['par','pair'],['tf','tf'],['direcao','dir'],
     ['abertura_vela','open'],['entrada','entry'],['fechamento_vela','closeTxt'],['corpo_pips','bodyPips'],['resultado','result'],
     ['resultado_vs_entrada','vsEntry'],['padroes','allPatterns'],['chance_app','chance'],['adx','adx'],['di_mais','diP'],['di_menos','diM'],
-    ['tendencia','tend'],['ema20','ema20'],['preco_vs_ema20','emaPos'],['inclinacao_ema_pips','emaSlope'],['gap_pips','gap'],['atraso_velas','lag']];
+    ['tendencia','tend'],['ema20','ema20'],['preco_vs_ema20','emaPos'],['inclinacao_ema_pips','emaSlope'],['gap_pips','gap'],['atraso_velas','lag'],['meu_resultado','meu']];
   const esc = v => { v = (v===undefined||v===null) ? '' : String(v); return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
   const lines = [cols.map(c=>c[0]).join(';')].concat(allHistory.slice().reverse().map(h=>cols.map(c=>esc(h[c[1]])).join(';')));
   const blob = new Blob(['\ufeff'+lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
